@@ -17,12 +17,12 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 data class PortalTaskSettings(
-    val llmModel: String = PortalCloudClient.DEFAULT_MODEL_ID,
-    val reasoning: Boolean = PortalCloudClient.DEFAULT_REASONING,
-    val vision: Boolean = PortalCloudClient.DEFAULT_VISION,
-    val maxSteps: Int = PortalCloudClient.DEFAULT_MAX_STEPS,
-    val temperature: Double = PortalCloudClient.DEFAULT_TEMPERATURE,
-    val executionTimeout: Int = PortalCloudClient.DEFAULT_EXECUTION_TIMEOUT,
+    val llmModel: String = PortalServiceClient.DEFAULT_MODEL_ID,
+    val reasoning: Boolean = PortalServiceClient.DEFAULT_REASONING,
+    val vision: Boolean = PortalServiceClient.DEFAULT_VISION,
+    val maxSteps: Int = PortalServiceClient.DEFAULT_MAX_STEPS,
+    val temperature: Double = PortalServiceClient.DEFAULT_TEMPERATURE,
+    val executionTimeout: Int = PortalServiceClient.DEFAULT_EXECUTION_TIMEOUT,
 )
 
 data class PortalTaskDraft(
@@ -101,11 +101,11 @@ sealed class PortalTaskCancelResult {
     data class Error(val message: String) : PortalTaskCancelResult()
 }
 
-class PortalCloudClient(
+class PortalServiceClient(
     private val okHttpClient: OkHttpClient = OkHttpClient(),
 ) {
     companion object {
-        private const val TAG = "PortalCloudClient"
+        private const val TAG = "PortalServiceClient"
         const val DEFAULT_MODEL_ID = "google/gemini-3.1-flash-lite-preview"
         const val DEFAULT_REASONING = false
         const val DEFAULT_VISION = false
@@ -116,6 +116,42 @@ class PortalCloudClient(
         internal const val LAUNCH_RECOVERY_RETRY_INTERVAL_MS = 1_000L
 
         private const val SUPPORTED_JOIN_PATH = "/v1/providers/personal/join"
+        private const val MODEL_FALLBACK_WARNING =
+            "Couldn't load models from the configured task service. Using the fallback model list."
+        private const val HOST_UNREACHABLE_MESSAGE =
+            "Could not reach the configured host. Check the connection and try again."
+        private const val HOST_UNAUTHORIZED_MESSAGE =
+            "The configured host rejected the saved token. Update the token and try again."
+        private const val HOST_UNEXPECTED_MESSAGE =
+            "The configured host returned an unexpected response."
+        private const val HOST_DEVICE_NOT_FOUND_MESSAGE =
+            "This connected device was not found on the configured host. Reconnect it and try again."
+        private const val HOST_TASK_REJECTED_MESSAGE =
+            "The configured host rejected the task request. Check the selected model and settings."
+        private const val HOST_TASK_START_RETRYABLE_MESSAGE =
+            "The configured host could not start the task right now. Try again in a moment."
+        private const val HOST_TASK_STATUS_RETRYABLE_MESSAGE =
+            "The configured host could not load the task status right now. Try again in a moment."
+        private const val HOST_TASK_DETAILS_RETRYABLE_MESSAGE =
+            "The configured host could not load the task details right now. Try again in a moment."
+        private const val HOST_TASK_HISTORY_RETRYABLE_MESSAGE =
+            "The configured host could not load the task history right now. Try again in a moment."
+        private const val HOST_TASK_SCREENSHOTS_RETRYABLE_MESSAGE =
+            "The configured host could not load screenshots right now. Try again in a moment."
+        private const val HOST_TASK_TRAJECTORY_RETRYABLE_MESSAGE =
+            "The configured host could not load trajectory right now. Try again in a moment."
+        private const val HOST_TASK_CANCEL_RETRYABLE_MESSAGE =
+            "The configured host could not cancel the task right now. Try again in a moment."
+        private const val HOST_TASK_NOT_FOUND_MESSAGE =
+            "This task was not found on the configured host anymore."
+        private const val HOST_SCREENSHOT_NOT_FOUND_MESSAGE =
+            "This task screenshot list was not found on the configured host anymore."
+        private const val HOST_TRAJECTORY_NOT_FOUND_MESSAGE =
+            "This task trajectory was not found on the configured host anymore."
+        private const val BILLING_UNREACHABLE_MESSAGE =
+            "Could not reach the configured billing endpoint. Check the connection and try again."
+        private const val BILLING_RETRYABLE_MESSAGE =
+            "The configured billing endpoint could not load credits right now. Try again in a moment."
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
         private val HARD_LAUNCH_FAILURE_CODES = setOf(400, 401, 403, 404, 412, 422)
         private val LAUNCH_RECOVERY_EXECUTOR = Executors.newSingleThreadScheduledExecutor { runnable ->
@@ -133,8 +169,6 @@ class PortalCloudClient(
             "moonshotai/kimi-k2.5",
             "anthropic/claude-sonnet-4.6",
             "anthropic/claude-opus-4.6",
-            "mobilerun/mobile-agent-fast",
-            "mobilerun/mobile-agent-thinking",
         )
 
         fun fallbackModelOptions(): List<PortalModelOption> = buildModelOptions(FALLBACK_MODEL_IDS)
@@ -170,7 +204,7 @@ class PortalCloudClient(
             }
         }
 
-        fun deriveCloudBaseUrl(reverseConnectionUrl: String): String? {
+        fun deriveBillingBaseUrl(reverseConnectionUrl: String): String? {
             if (reverseConnectionUrl.isBlank()) return null
 
             return try {
@@ -191,7 +225,7 @@ class PortalCloudClient(
                     return null
                 }
 
-                val cloudHost = when {
+                val billingHost = when {
                     host.startsWith("api.", ignoreCase = true) -> "cloud.${host.removePrefix("api.")}"
                     host.startsWith("cloud.", ignoreCase = true) -> host
                     else -> return null
@@ -199,42 +233,10 @@ class PortalCloudClient(
 
                 buildString {
                     append("https://")
-                    append(cloudHost)
+                    append(billingHost)
                     if (uri.port != -1) {
                         append(":")
                         append(uri.port)
-                    }
-                }
-            } catch (_: Exception) {
-                null
-            }
-        }
-
-        fun isOfficialMobilerunCloudConnection(
-            reverseConnectionUrl: String,
-            defaultReverseConnectionUrl: String,
-        ): Boolean {
-            val cloudBaseUrl = normalizeCloudBaseUrl(deriveCloudBaseUrl(reverseConnectionUrl))
-            val defaultCloudBaseUrl =
-                normalizeCloudBaseUrl(deriveCloudBaseUrl(defaultReverseConnectionUrl))
-            return cloudBaseUrl != null && cloudBaseUrl == defaultCloudBaseUrl
-        }
-
-        private fun normalizeCloudBaseUrl(cloudBaseUrl: String?): String? {
-            if (cloudBaseUrl.isNullOrBlank()) return null
-
-            return try {
-                val httpUrl = cloudBaseUrl.trim().toHttpUrl()
-                if (httpUrl.scheme.lowercase(Locale.US) != "https") {
-                    return null
-                }
-
-                buildString {
-                    append("https://")
-                    append(httpUrl.host.lowercase(Locale.US))
-                    if (httpUrl.port != 443) {
-                        append(":")
-                        append(httpUrl.port)
                     }
                 }
             } catch (_: Exception) {
@@ -457,11 +459,11 @@ class PortalCloudClient(
         }
 
         fun buildBalanceRequest(
-            cloudBaseUrl: String,
+            billingBaseUrl: String,
             authToken: String,
         ): Request {
             return Request.Builder()
-                .url("${cloudBaseUrl.trimEnd('/')}/api/billing/balance")
+                .url("${billingBaseUrl.trimEnd('/')}/api/billing/balance")
                 .addHeader("Authorization", "Bearer $authToken")
                 .get()
                 .build()
@@ -818,7 +820,7 @@ class PortalCloudClient(
                 callback(
                     PortalModelsLoadResult(
                         models = fallbackModelOptions(),
-                        warningMessage = "Couldn't load models from Mobilerun. Using the documented fallback model list.",
+                        warningMessage = MODEL_FALLBACK_WARNING,
                         loadedFromServer = false,
                     ),
                 )
@@ -831,7 +833,7 @@ class PortalCloudClient(
                         callback(
                             PortalModelsLoadResult(
                                 models = fallbackModelOptions(),
-                                warningMessage = "Couldn't load models from Mobilerun. Using the documented fallback model list.",
+                                warningMessage = MODEL_FALLBACK_WARNING,
                                 loadedFromServer = false,
                             ),
                         )
@@ -843,7 +845,7 @@ class PortalCloudClient(
                         callback(
                             PortalModelsLoadResult(
                                 models = fallbackModelOptions(),
-                                warningMessage = "Couldn't load models from Mobilerun. Using the documented fallback model list.",
+                                warningMessage = MODEL_FALLBACK_WARNING,
                                 loadedFromServer = false,
                             ),
                         )
@@ -862,16 +864,16 @@ class PortalCloudClient(
     }
 
     fun loadBalance(
-        cloudBaseUrl: String,
+        billingBaseUrl: String,
         authToken: String,
         callback: (PortalBalanceResult) -> Unit,
     ) {
-        val request = buildBalanceRequest(cloudBaseUrl, authToken)
+        val request = buildBalanceRequest(billingBaseUrl, authToken)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
                 callback(
                     PortalBalanceResult.Error(
-                        "Could not reach Mobilerun billing right now. Check the connection and try again.",
+                        BILLING_UNREACHABLE_MESSAGE,
                         retryable = true,
                     ),
                 )
@@ -884,7 +886,7 @@ class PortalCloudClient(
                         val parsedDetail = parseErrorDetail(body)
                         val result = when (response.code) {
                             401, 403 -> PortalBalanceResult.Error(
-                                "Mobilerun rejected the saved API key. Sign in again or update the key.",
+                                HOST_UNAUTHORIZED_MESSAGE,
                             )
 
                             404 -> PortalBalanceResult.Unavailable(
@@ -892,12 +894,12 @@ class PortalCloudClient(
                             )
 
                             in 500..599 -> PortalBalanceResult.Error(
-                                "Mobilerun could not load credits right now. Try again in a moment.",
+                                BILLING_RETRYABLE_MESSAGE,
                                 retryable = true,
                             )
 
                             else -> PortalBalanceResult.Error(
-                                parsedDetail ?: "Mobilerun returned an unexpected response.",
+                                parsedDetail ?: HOST_UNEXPECTED_MESSAGE,
                             )
                         }
                         callback(result)
@@ -908,7 +910,7 @@ class PortalCloudClient(
                     if (info == null) {
                         callback(
                             PortalBalanceResult.Error(
-                                "Mobilerun returned an unexpected response.",
+                                HOST_UNEXPECTED_MESSAGE,
                             ),
                         )
                         return
@@ -939,7 +941,7 @@ class PortalCloudClient(
                     deviceId = deviceId,
                     draft = draft,
                     launchStartedAtMs = launchStartedAtMs,
-                    fallbackMessage = "Could not reach Mobilerun. Check the connection and try again.",
+                    fallbackMessage = HOST_UNREACHABLE_MESSAGE,
                     completionGate = completionGate,
                     callback = callback,
                 )
@@ -956,13 +958,13 @@ class PortalCloudClient(
                     if (!response.isSuccessful) {
                         val parsedDetail = parseErrorDetail(body)
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            404 -> "This connected device was not found in Mobilerun. Reconnect it and try again."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            404 -> HOST_DEVICE_NOT_FOUND_MESSAGE
                             400, 412, 422 -> parsedDetail
-                                ?: "Mobilerun rejected the task request. Check the selected model and settings."
+                                ?: HOST_TASK_REJECTED_MESSAGE
 
-                            in 500..599 -> "Mobilerun could not start the task right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            in 500..599 -> HOST_TASK_START_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         if (response.code !in HARD_LAUNCH_FAILURE_CODES &&
                             !parsedTaskId.isNullOrBlank()
@@ -1014,7 +1016,7 @@ class PortalCloudClient(
                         deviceId = deviceId,
                         draft = draft,
                         launchStartedAtMs = launchStartedAtMs,
-                        fallbackMessage = "Mobilerun returned an unexpected response.",
+                        fallbackMessage = HOST_UNEXPECTED_MESSAGE,
                         completionGate = completionGate,
                         callback = callback,
                     )
@@ -1169,7 +1171,7 @@ class PortalCloudClient(
         val request = buildTaskStatusRequest(restBaseUrl, authToken, taskId)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback(PortalTaskStatusResult.Error("Could not reach Mobilerun. Check the connection and try again."))
+                callback(PortalTaskStatusResult.Error(HOST_UNREACHABLE_MESSAGE))
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -1178,10 +1180,10 @@ class PortalCloudClient(
                     if (!response.isSuccessful) {
                         val parsedDetail = parseErrorDetail(body)
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            404 -> "This task was not found in Mobilerun anymore."
-                            in 500..599 -> "Mobilerun could not load the task status right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            404 -> HOST_TASK_NOT_FOUND_MESSAGE
+                            in 500..599 -> HOST_TASK_STATUS_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         callback(PortalTaskStatusResult.Error(message))
                         return
@@ -1189,7 +1191,7 @@ class PortalCloudClient(
 
                     val status = parseTaskStatus(body)
                     if (status == null) {
-                        callback(PortalTaskStatusResult.Error("Mobilerun returned an unexpected response."))
+                        callback(PortalTaskStatusResult.Error(HOST_UNEXPECTED_MESSAGE))
                         return
                     }
 
@@ -1208,7 +1210,7 @@ class PortalCloudClient(
         val request = buildTaskDetailsRequest(restBaseUrl, authToken, taskId)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback(PortalTaskDetailsResult.Error("Could not reach Mobilerun. Check the connection and try again."))
+                callback(PortalTaskDetailsResult.Error(HOST_UNREACHABLE_MESSAGE))
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -1217,10 +1219,10 @@ class PortalCloudClient(
                     if (!response.isSuccessful) {
                         val parsedDetail = parseErrorDetail(body)
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            404 -> "This task was not found in Mobilerun anymore."
-                            in 500..599 -> "Mobilerun could not load the task details right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            404 -> HOST_TASK_NOT_FOUND_MESSAGE
+                            in 500..599 -> HOST_TASK_DETAILS_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         callback(PortalTaskDetailsResult.Error(message))
                         return
@@ -1228,7 +1230,7 @@ class PortalCloudClient(
 
                     val task = parseTaskDetails(body, taskId)
                     if (task == null) {
-                        callback(PortalTaskDetailsResult.Error("Mobilerun returned an unexpected response."))
+                        callback(PortalTaskDetailsResult.Error(HOST_UNEXPECTED_MESSAGE))
                         return
                     }
 
@@ -1249,7 +1251,7 @@ class PortalCloudClient(
         val request = buildListTasksRequest(restBaseUrl, authToken, query, page, pageSize)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback(PortalTaskHistoryResult.Error("Could not reach Mobilerun. Check the connection and try again."))
+                callback(PortalTaskHistoryResult.Error(HOST_UNREACHABLE_MESSAGE))
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -1258,9 +1260,9 @@ class PortalCloudClient(
                     if (!response.isSuccessful) {
                         val parsedDetail = parseErrorDetail(body)
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            in 500..599 -> "Mobilerun could not load the task history right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            in 500..599 -> HOST_TASK_HISTORY_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         callback(PortalTaskHistoryResult.Error(message))
                         return
@@ -1268,7 +1270,7 @@ class PortalCloudClient(
 
                     val pageResult = parseTaskHistoryPage(body)
                     if (pageResult == null) {
-                        callback(PortalTaskHistoryResult.Error("Mobilerun returned an unexpected response."))
+                        callback(PortalTaskHistoryResult.Error(HOST_UNEXPECTED_MESSAGE))
                         return
                     }
 
@@ -1287,7 +1289,7 @@ class PortalCloudClient(
         val request = buildTaskScreenshotsRequest(restBaseUrl, authToken, taskId)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback(PortalTaskScreenshotResult.Error("Could not reach Mobilerun. Check the connection and try again."))
+                callback(PortalTaskScreenshotResult.Error(HOST_UNREACHABLE_MESSAGE))
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -1296,10 +1298,10 @@ class PortalCloudClient(
                     if (!response.isSuccessful) {
                         val parsedDetail = parseErrorDetail(body)
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            404 -> "This task screenshot list was not found in Mobilerun anymore."
-                            in 500..599 -> "Mobilerun could not load screenshots right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            404 -> HOST_SCREENSHOT_NOT_FOUND_MESSAGE
+                            in 500..599 -> HOST_TASK_SCREENSHOTS_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         callback(PortalTaskScreenshotResult.Error(message))
                         return
@@ -1307,7 +1309,7 @@ class PortalCloudClient(
 
                     val screenshots = parseTaskScreenshotSet(body)
                     if (screenshots == null) {
-                        callback(PortalTaskScreenshotResult.Error("Mobilerun returned an unexpected response."))
+                        callback(PortalTaskScreenshotResult.Error(HOST_UNEXPECTED_MESSAGE))
                         return
                     }
 
@@ -1326,7 +1328,7 @@ class PortalCloudClient(
         val request = buildTaskTrajectoryRequest(restBaseUrl, authToken, taskId)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback(PortalTaskTrajectoryResult.Error("Could not reach Mobilerun. Check the connection and try again."))
+                callback(PortalTaskTrajectoryResult.Error(HOST_UNREACHABLE_MESSAGE))
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -1335,10 +1337,10 @@ class PortalCloudClient(
                     if (!response.isSuccessful) {
                         val parsedDetail = parseErrorDetail(body)
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            404 -> "This task trajectory was not found in Mobilerun anymore."
-                            in 500..599 -> "Mobilerun could not load trajectory right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            404 -> HOST_TRAJECTORY_NOT_FOUND_MESSAGE
+                            in 500..599 -> HOST_TASK_TRAJECTORY_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         callback(PortalTaskTrajectoryResult.Error(message))
                         return
@@ -1346,7 +1348,7 @@ class PortalCloudClient(
 
                     val trajectory = parseTaskTrajectory(body)
                     if (trajectory == null) {
-                        callback(PortalTaskTrajectoryResult.Error("Mobilerun returned an unexpected response."))
+                        callback(PortalTaskTrajectoryResult.Error(HOST_UNEXPECTED_MESSAGE))
                         return
                     }
 
@@ -1365,7 +1367,7 @@ class PortalCloudClient(
         val request = buildCancelTaskRequest(restBaseUrl, authToken, taskId)
         okHttpClient.newCall(request).enqueue(object : okhttp3.Callback {
             override fun onFailure(call: okhttp3.Call, e: IOException) {
-                callback(PortalTaskCancelResult.Error("Could not reach Mobilerun. Check the connection and try again."))
+                callback(PortalTaskCancelResult.Error(HOST_UNREACHABLE_MESSAGE))
             }
 
             override fun onResponse(call: okhttp3.Call, response: okhttp3.Response) {
@@ -1381,10 +1383,10 @@ class PortalCloudClient(
                         }
 
                         val message = when (response.code) {
-                            401, 403 -> "Mobilerun rejected the saved API key. Sign in again or update the key."
-                            404 -> "This task was not found in Mobilerun anymore."
-                            in 500..599 -> "Mobilerun could not cancel the task right now. Try again in a moment."
-                            else -> parsedDetail ?: "Mobilerun returned an unexpected response."
+                            401, 403 -> HOST_UNAUTHORIZED_MESSAGE
+                            404 -> HOST_TASK_NOT_FOUND_MESSAGE
+                            in 500..599 -> HOST_TASK_CANCEL_RETRYABLE_MESSAGE
+                            else -> parsedDetail ?: HOST_UNEXPECTED_MESSAGE
                         }
                         callback(PortalTaskCancelResult.Error(message))
                         return

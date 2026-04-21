@@ -1,8 +1,11 @@
 package com.droidrun.portal.taskprompt
 
 import android.content.Context
+import android.widget.Toast
 import androidx.annotation.StringRes
 import com.droidrun.portal.R
+import com.droidrun.portal.config.ConfigManager
+import com.droidrun.portal.config.PortalRuntimeMode
 import com.droidrun.portal.state.ConnectionState
 
 enum class PortalTaskStatusAppearance {
@@ -12,10 +15,43 @@ enum class PortalTaskStatusAppearance {
 }
 
 object PortalTaskUiSupport {
+    fun areTaskFeaturesEnabled(): Boolean {
+        return !PortalRuntimeMode.HOST_ONLY_BUILD
+    }
+
+    fun clearDisabledTaskRuntimeState(context: Context) {
+        val appContext = context.applicationContext
+        ConfigManager.getInstance(appContext).clearActivePortalTask()
+        TaskPromptNotificationManager.cancel(appContext)
+    }
+
+    fun ensureTaskFeaturesAvailable(
+        context: Context,
+        showToast: Boolean = false,
+    ): Boolean {
+        if (areTaskFeaturesEnabled()) {
+            return true
+        }
+
+        clearDisabledTaskRuntimeState(context)
+        if (showToast) {
+            Toast.makeText(
+                context.applicationContext,
+                R.string.task_prompt_host_only_disabled,
+                Toast.LENGTH_SHORT,
+            ).show()
+        }
+        return false
+    }
+
     fun shouldShowTaskSurface(
         connectionState: ConnectionState,
         authToken: String,
     ): Boolean {
+        if (!areTaskFeaturesEnabled()) {
+            return false
+        }
+
         return connectionState == ConnectionState.CONNECTED &&
             authToken.trim().isNotBlank()
     }

@@ -16,6 +16,7 @@ import com.droidrun.portal.events.EventHub
 import com.droidrun.portal.events.model.EventType
 import com.droidrun.portal.events.model.PortalEvent
 import com.droidrun.portal.taskprompt.PortalTaskSettings
+import com.droidrun.portal.taskprompt.PortalTaskUiSupport
 import org.json.JSONObject
 
 object TriggerRuntime {
@@ -132,6 +133,15 @@ object TriggerRuntime {
     fun launchTest(ruleId: String) {
         initialize(appContext)
         val rule = repository.getRule(ruleId) ?: return
+        if (!PortalTaskUiSupport.areTaskFeaturesEnabled()) {
+            logRun(
+                rule = rule,
+                disposition = TriggerRunDisposition.RULE_DISABLED,
+                summary = "Skipped test run because task features are disabled in this host-only build",
+                signal = buildTestSignal(rule),
+            )
+            return
+        }
         val missingPermissions = missingPermissions(rule)
         if (missingPermissions.isNotEmpty()) {
             logRun(

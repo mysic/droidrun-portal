@@ -18,7 +18,7 @@ import com.droidrun.portal.R
 import com.droidrun.portal.databinding.DialogTaskPromptModelPickerBinding
 import com.droidrun.portal.databinding.ItemTaskPromptModelOptionBinding
 import com.droidrun.portal.databinding.ViewTaskPromptSettingsPanelBinding
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
 import com.droidrun.portal.taskprompt.PortalModelOption
 import com.droidrun.portal.taskprompt.PortalTaskSettings
 import com.droidrun.portal.taskprompt.TaskPromptSettingsConstraints
@@ -140,7 +140,7 @@ class TaskPromptSettingsPanelController(
         val mergedOptions = LinkedHashMap<String, PortalModelOption>()
         val currentModelId = selectedModelId ?: currentSettings.llmModel
         if (!currentModelId.isNullOrBlank()) {
-            PortalCloudClient.buildModelOptions(listOf(currentModelId)).forEach { mergedOptions[it.id] = it }
+            PortalServiceClient.buildModelOptions(listOf(currentModelId)).forEach { mergedOptions[it.id] = it }
         }
         options.forEach { mergedOptions[it.id] = it }
         modelOptions = mergedOptions.values.toList()
@@ -223,7 +223,7 @@ class TaskPromptSettingsPanelController(
         if (modelId.isNullOrBlank()) return
         selectedModelId = modelId
         val selected = modelOptions.firstOrNull { it.id == modelId }
-        modelInput.setText(selected?.label ?: PortalCloudClient.formatModelLabel(modelId))
+        modelInput.setText(selected?.label ?: PortalServiceClient.formatModelLabel(modelId))
     }
 
     private fun openModelPicker() {

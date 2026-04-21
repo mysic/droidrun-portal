@@ -50,7 +50,7 @@ class ScreenCaptureActivity : Activity() {
                 startForegroundService(serviceIntent)
             } else {
                 Log.e(TAG, "MediaProjection permission denied")
-                // Notify cloud of permission denial
+                // Notify the connected host that permission was denied
                 notifyPermissionDenied()
             }
             
@@ -78,13 +78,13 @@ class ScreenCaptureActivity : Activity() {
                 }
                 service.sendText(errorMessage.toString())
             } else {
-                Log.w(TAG, "ReverseConnectionService not available to notify cloud")
+                Log.w(TAG, "ReverseConnectionService not available to notify the host")
             }
             WebRtcManager
                 .getInstance(this)
                 .setStreamRequestId(null)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to notify cloud of permission denial", e)
+            Log.e(TAG, "Failed to notify the host of permission denial", e)
         }
     }
 }

@@ -25,7 +25,7 @@
     <string name="default_port">8080</string>
     <string name="connection_details_header">Connection Details</string>
     <string name="task_prompt_card_title">Run Task</string>
-    <string name="task_prompt_card_subtitle">Start a Mobilerun task on this device and review recent runs.</string>
+    <string name="task_prompt_card_subtitle">Start a task on this device and review recent runs.</string>
     <string name="task_prompt_latest_task_label">Latest task</string>
     <string name="task_prompt_hint">Describe what the agent should do</string>
     <string name="task_prompt_model_label">Model</string>
@@ -55,8 +55,9 @@
     <string name="task_prompt_invalid_timeout">Enter a value between 1 and 1000</string>
     <string name="task_prompt_invalid_temperature">Enter a value between 0 and 2</string>
     <string name="task_prompt_loading_models">Loading models…</string>
-    <string name="task_prompt_missing_api_key">Task launch requires a Mobilerun API key.</string>
-    <string name="task_prompt_unsupported_custom_url">Task launch only supports WebSocket URLs ending in /v1/providers/personal/join.</string>
+    <string name="task_prompt_host_only_disabled">Task features are disabled in this host-only build.</string>
+    <string name="task_prompt_missing_api_key">Task launch requires a configured host token.</string>
+    <string name="task_prompt_unsupported_custom_url">Task launch requires a compatible task-service endpoint on the configured host.</string>
     <string name="task_prompt_started">Task started on this device.</string>
     <string name="task_prompt_return_to_portal">Return to Portal when task ends</string>
     <string name="task_prompt_copy_success">Task ID copied</string>
@@ -149,6 +150,8 @@
     <string name="unavailable">Unavailable</string>
     <string name="token_label">"Token: "</string>
     <string name="copy_token_content_description">Copy token</string>
+    <string name="copy_device_id_content_description">Copy device ID</string>
+    <string name="device_id_copied">Device ID copied</string>
     <string name="adb_forward_command_header">ADB Forward Command</string>
     <string name="adb_forward_command_placeholder">adb forward tcp:8080 tcp:8080</string>
     <string name="endpoints_header">Endpoints</string>
@@ -174,14 +177,14 @@
     <string name="allow_external_connections_label">Enable local WebSocket server</string>
     <string name="port_label">Port</string>
     <string name="websocket_server_started">WebSocket server started on port %1$d</string>
-    <string name="reverse_connection_header">Cloud Connection</string>
+    <string name="reverse_connection_header">Reverse Connection</string>
     <string name="connect_to_host_label">Connect to Host</string>
-    <string name="initiate_outbound_connection_label">Connect device to remote server</string>
-    <string name="host_url_hint">Server URL</string>
-    <string name="token_optional_hint">API Key</string>
+    <string name="initiate_outbound_connection_label">Connect this device to your configured reverse host</string>
+    <string name="host_url_hint">Reverse Host URL</string>
+    <string name="token_optional_hint">Host Token (optional)</string>
     <string name="reverse_connection_connected">Reverse connection established</string>
     <string name="reverse_connection_service_title">Reverse connection active</string>
-    <string name="reverse_connection_service_text">Keeping device connected for tasks</string>
+    <string name="reverse_connection_service_text">Keeping the device connected to the configured host</string>
     <string name="local_connection_service_title">Local connection active</string>
     <string name="local_connection_service_text">WebSocket server is ready for local tasks</string>
     <string name="disable_ws_server_action">Disable WS Server</string>
@@ -212,39 +215,48 @@
     <!-- Logout -->
     <string name="logout">Logout</string>
 
-    <!-- API Key Dialog -->
-    <string name="connect_with_api_key_title">Connect with API Key</string>
-    <string name="connect_with_api_key_subtitle">Enter your API key to connect</string>
-    <string name="api_key_hint">API Key</string>
+    <!-- Saved Token Dialog -->
+    <string name="connect_with_api_key_title">Use Saved Token</string>
+    <string name="connect_with_api_key_subtitle">Enter the saved host token</string>
+    <string name="api_key_hint">Host Token</string>
     <string name="connect_button">Connect</string>
-    <string name="connect_to_mobilerun_title">Connect to Mobilerun</string>
-    <string name="connect_to_mobilerun_subtitle">Choose how to authenticate this device</string>
-    <string name="sign_in_with_browser">Sign in with Browser</string>
-    <string name="sign_out">Sign Out</string>
-    <string name="use_api_key">Use API Key</string>
-    <string name="custom_connection">Custom Connection</string>
-    <string name="error_unauthorized_actionable">Your API key was rejected. Sign in again or enter a new key.</string>
-    <string name="sign_out_confirmation_title">Sign out on this device?</string>
-    <string name="sign_out_confirmation_message">This removes the saved Mobilerun sign-in from this portal only.</string>
+    <string name="connect_to_host_title">Connect to Host</string>
+    <string name="connect_to_host_subtitle">Configure a reverse WebSocket host and optional token</string>
+    <string name="sign_in_with_browser">Configure Host</string>
+    <string name="sign_out">Clear Saved Auth</string>
+    <string name="use_api_key">Use Saved Token</string>
+    <string name="custom_connection">Configure Host</string>
+    <string name="custom_connection_subtitle">Connect to your reverse WebSocket host</string>
+    <string name="custom_connection_url_hint">ws://192.168.1.20:8765/reverse</string>
+    <string name="custom_connection_helper">Example: ws://192.168.1.20:8765/reverse
+Use {deviceId} in the URL to auto-replace with this device ID.</string>
+    <!-- Deprecated: use connection_title_host instead -->
+    <string name="connection_title_host">Connected to Host</string>
+    <string name="connection_title_host">Connected to Host</string>
+    <string name="configure_host_connection">Configure Host</string>
+    <string name="edit_host_connection">Edit Host Connection</string>
+    <string name="error_unauthorized_actionable">The configured host rejected the saved token. Update the host URL or token.</string>
+    <string name="sign_out_confirmation_title">Clear saved connection auth?</string>
+    <string name="sign_out_confirmation_message">This removes the saved reverse-host token from this portal.</string>
 
     <!-- Connection States -->
     <string name="connection_failed_title">Connection Failed</string>
-    <string name="error_unauthorized">Unauthorized \u2014 check your API key</string>
+    <string name="error_unauthorized">Unauthorized \u2014 check your saved token</string>
     <string name="error_limit_exceeded">Device limit exceeded</string>
-    <string name="error_bad_request_actionable">Saved Mobilerun credentials may belong to a different account. Sign in again or update the connection.</string>
+    <string name="error_bad_request_actionable">The configured host rejected the current connection settings. Update the host URL or token.</string>
     <string name="error_bad_request">Bad request \u2014 check token and headers</string>
     <string name="error_unknown">An unknown error occurred</string>
     <string name="connecting_subtitle">Establishing connection\u2026</string>
     <string name="reconnecting_subtitle">Connection interrupted, retrying\u2026</string>
     <string name="retry">Retry</string>
     <string name="dismiss">Dismiss</string>
-    <string name="task_prompt_status_using_fallback_models">Couldn’t load models from Mobilerun. Using the documented fallback model list.</string>
-    <string name="task_prompt_status_network_error">Could not reach Mobilerun. Check the connection and try again.</string>
-    <string name="task_prompt_status_unauthorized">Mobilerun rejected the saved API key. Sign in again or update the key.</string>
-    <string name="task_prompt_status_device_not_found">This connected device was not found in Mobilerun. Reconnect it and try again.</string>
-    <string name="task_prompt_status_request_rejected">Mobilerun rejected the task request. Check the selected model and settings.</string>
-    <string name="task_prompt_status_server_error">Mobilerun could not start the task right now. Try again in a moment.</string>
-    <string name="task_prompt_status_unexpected_response">Mobilerun returned an unexpected response.</string>
+    <string name="task_prompt_status_using_fallback_models">Couldn’t load models from the configured task service. Using the fallback model list.</string>
+    <string name="task_prompt_status_network_error">Could not reach the configured task service. Check the connection and try again.</string>
+    <string name="task_prompt_status_unauthorized">The configured host rejected the saved token. Update the token and try again.</string>
+    <string name="task_prompt_status_device_not_found">This connected device was not found on the configured host. Reconnect it and try again.</string>
+    <string name="task_prompt_status_request_rejected">The configured host rejected the task request. Check the selected model and settings.</string>
+    <string name="task_prompt_status_server_error">The configured host could not start the task right now. Try again in a moment.</string>
+    <string name="task_prompt_status_unexpected_response">The configured host returned an unexpected response.</string>
 
     <!-- Keyboard Warning -->
     <string name="keyboard_enabled_message">Droidrun Keyboard active.</string>
@@ -269,6 +281,6 @@
     <string name="credits_no_reset_scheduled">No reset scheduled</string>
     <string name="credits_loading">Loading credits…</string>
     <string name="credits_refreshing">Refreshing credits…</string>
-    <string name="credits_sign_in_required">Sign in with Mobilerun or add a valid API key to view credits.</string>
-    <string name="credits_unsupported_host">Credits balance is only available for official Mobilerun cloud connections.</string>
+    <string name="credits_sign_in_required">Add a valid host token to view any host-provided billing data.</string>
+    <string name="credits_unsupported_host">Credits are disabled in this host-only build.</string>
 </resources>

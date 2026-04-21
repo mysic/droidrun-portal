@@ -4,11 +4,11 @@
    See https://developer.android.com/about/versions/12/backup-restore#xml-changes
 -->
 <data-extraction-rules>
-    <cloud-backup>
+    <legacy-backup>
         <!-- Exclude device_id from backup to ensure unique IDs per device/emulator -->
         <exclude domain="sharedpref" path="droidrun_device.xml"/>
         <exclude domain="sharedpref" path="droidrun_secrets.xml"/>
-    </cloud-backup>
+    </legacy-backup>
     <device-transfer>
         <!-- Exclude device_id from device transfer to ensure unique IDs -->
         <exclude domain="sharedpref" path="droidrun_device.xml"/>

@@ -283,7 +283,7 @@ object PortalTaskTrajectoryUiSupport {
                 )
 
             "CreatedEvent" -> PortalTaskTrajectoryIconAppearance(
-                iconResId = R.drawable.cloud,
+                iconResId = R.drawable.circle_check,
                 iconTintResId = R.color.task_prompt_accent_light,
                 backgroundColorResId = R.color.task_prompt_chip_info_bg,
             )

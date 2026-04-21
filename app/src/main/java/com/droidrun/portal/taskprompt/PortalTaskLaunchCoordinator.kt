@@ -6,7 +6,7 @@ import com.droidrun.portal.config.ConfigManager
 
 class PortalTaskLaunchCoordinator(
     context: Context,
-    private val portalCloudClient: PortalCloudClient = PortalCloudClient(),
+    private val portalServiceClient: PortalServiceClient = PortalServiceClient(),
 ) {
     sealed class Result {
         data class Success(val record: PortalActiveTaskRecord) : Result()
@@ -24,8 +24,13 @@ class PortalTaskLaunchCoordinator(
         metadata: PortalTaskLaunchMetadata = PortalTaskLaunchMetadata(),
         onComplete: (Result) -> Unit,
     ) {
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(appContext)) {
+            onComplete(Result.Error(appContext.getString(R.string.task_prompt_host_only_disabled)))
+            return
+        }
+
         val authToken = configManager.reverseConnectionToken.trim()
-        val restBaseUrl = PortalCloudClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
+        val restBaseUrl = PortalServiceClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
         val activeTask = configManager.activePortalTask
 
         if (authToken.isBlank()) {
@@ -48,7 +53,7 @@ class PortalTaskLaunchCoordinator(
             settings = settings,
             returnToPortalOnTerminal = metadata.returnToPortalOnTerminal,
         )
-        portalCloudClient.launchTask(
+        portalServiceClient.launchTask(
             restBaseUrl = restBaseUrl,
             authToken = authToken,
             deviceId = configManager.deviceID,

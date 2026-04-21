@@ -1843,7 +1843,7 @@ class ApiHandler(
             val notification = NotificationCompat.Builder(context, channelId)
                 .setSmallIcon(android.R.drawable.ic_menu_camera)
                 .setContentTitle("Start Screen Streaming")
-                .setContentText("Tap to allow cloud screen sharing")
+                .setContentText("Tap to allow remote screen sharing")
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

@@ -668,7 +668,7 @@ class WebRtcManager private constructor(private val context: Context) {
                                 PeerConnection.IceConnectionState.CONNECTED,
                                 PeerConnection.IceConnectionState.COMPLETED -> {
                                     cancelIdleStop()
-                                    showCloudStreamConnectedToastOnce(streamId)
+                                    showRemoteStreamConnectedToastOnce(streamId)
                                 }
 
                                 PeerConnection.IceConnectionState.FAILED -> {
@@ -820,7 +820,7 @@ class WebRtcManager private constructor(private val context: Context) {
         return staleSessions
     }
 
-    private fun showCloudStreamConnectedToastOnce(streamId: Int) {
+    private fun showRemoteStreamConnectedToastOnce(streamId: Int) {
         val shouldShow =
             synchronized(streamLock) {
                 if (!isCurrentStreamLocked(streamId)) {
@@ -834,7 +834,7 @@ class WebRtcManager private constructor(private val context: Context) {
             }
         if (!shouldShow) return
         mainHandler.post {
-            Toast.makeText(context, "Cloud stream connected", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Remote stream connected", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -942,7 +942,7 @@ class WebRtcManager private constructor(private val context: Context) {
         }
     }
 
-    fun stopAllSessions(reason: String = "cloud_stop") {
+    fun stopAllSessions(reason: String = "remote_stop") {
         cancelIdleStop()
         cancelAllKeepAlives()
         val primaryResources: PeerResources?
@@ -960,7 +960,7 @@ class WebRtcManager private constructor(private val context: Context) {
         scheduleIdleStop(reason)
     }
 
-    fun requestGracefulStop(reason: String = "cloud_stop") {
+    fun requestGracefulStop(reason: String = "remote_stop") {
         stopAllSessions(reason)
     }
 
@@ -1846,7 +1846,7 @@ class WebRtcManager private constructor(private val context: Context) {
                             PeerConnection.IceConnectionState.CONNECTED,
                             PeerConnection.IceConnectionState.COMPLETED -> {
                                 cancelIdleStop()
-                                showCloudStreamConnectedToastOnce(streamId)
+                                showRemoteStreamConnectedToastOnce(streamId)
                             }
 
                             PeerConnection.IceConnectionState.DISCONNECTED,

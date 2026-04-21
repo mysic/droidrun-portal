@@ -37,22 +37,43 @@
                     android:layout_marginBottom="32dp" />
 
                 <TextView
+                    android:id="@+id/text_production_connection_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Connected to Cloud"
+                    android:text="@string/connection_title_cloud"
                     android:textSize="24sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_white"
                     android:layout_marginBottom="8dp" />
 
-                <TextView
-                    android:id="@+id/text_production_device_id"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Device ID: ..."
-                    android:textColor="@color/text_gray"
-                    android:textSize="16sp"
-                    android:fontFamily="monospace" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/text_production_device_id"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Device ID: ..."
+                        android:textColor="@color/text_gray"
+                        android:textSize="16sp"
+                        android:fontFamily="monospace" />
+
+                    <ImageView
+                        android:id="@+id/btn_copy_production_device_id"
+                        android:layout_width="20dp"
+                        android:layout_height="20dp"
+                        android:layout_marginStart="8dp"
+                        android:contentDescription="@string/copy_device_id_content_description"
+                        android:src="@drawable/baseline_content_copy_24"
+                        app:tint="@color/text_white"
+                        android:background="?attr/selectableItemBackgroundBorderless"
+                        android:clickable="true"
+                        android:focusable="true" />
+
+                </LinearLayout>
 
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/card_credits_production"
@@ -504,7 +525,7 @@
                                     android:layout_width="22dp"
                                     android:layout_height="22dp"
                                     android:layout_marginEnd="12dp"
-                                    android:src="@drawable/cloud"
+                                    android:src="@drawable/unplug"
                                     app:tint="@color/text_white" />
 
                                 <LinearLayout
@@ -516,7 +537,7 @@
                                     <TextView
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="@string/connect_to_mobilerun_title"
+                                        android:text="@string/connect_to_host_title"
                                         android:textColor="@color/text_white"
                                         android:textSize="14sp"
                                         android:textStyle="bold" />
@@ -525,7 +546,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="2dp"
-                                        android:text="@string/connect_to_mobilerun_subtitle"
+                                        android:text="@string/connect_to_host_subtitle"
                                         android:textColor="@color/text_gray"
                                         android:textSize="12sp" />
 
@@ -542,6 +563,7 @@
                                 android:text="@string/sign_in_with_browser"
                                 android:textAllCaps="false"
                                 android:textColor="@color/text_white"
+                                android:visibility="gone"
                                 app:backgroundTint="@color/status_success"
                                 app:cornerRadius="8dp" />
 
@@ -554,20 +576,22 @@
                                 android:text="@string/use_api_key"
                                 android:textAllCaps="false"
                                 android:textColor="@color/text_white"
+                                android:visibility="gone"
                                 app:cornerRadius="8dp"
                                 app:strokeColor="@color/stroke_gray" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/btn_custom_connection"
-                                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                                style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginTop="8dp"
-                                android:text="@string/custom_connection"
+                                android:layout_marginTop="14dp"
+                                android:text="@string/configure_host_connection"
                                 android:textAllCaps="false"
                                 android:textColor="@color/text_white"
+                                app:backgroundTint="@color/status_success"
                                 app:cornerRadius="8dp"
-                                app:strokeColor="@color/stroke_gray" />
+                                app:strokeColor="@color/status_success" />
 
                         </LinearLayout>
 
@@ -638,7 +662,7 @@
                             android:paddingVertical="14dp"
                             android:visibility="gone">
 
-                            <!-- Cloud icon with green live indicator -->
+                            <!-- Host connection icon with green live indicator -->
                             <FrameLayout
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
@@ -647,7 +671,7 @@
                                 <ImageView
                                     android:layout_width="22dp"
                                     android:layout_height="22dp"
-                                    android:src="@drawable/cloud"
+                                    android:src="@drawable/circle_check"
                                     app:tint="@color/status_success" />
 
                                 <View
@@ -667,24 +691,46 @@
                                 android:orientation="vertical">
 
                                 <TextView
+                                    android:id="@+id/text_connection_title"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Connected to Cloud"
+                                    android:text="@string/connection_title_cloud"
                                     android:textColor="@color/text_white"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
 
-                                <TextView
-                                    android:id="@+id/text_device_id"
+                                <LinearLayout
                                     android:layout_width="match_parent"
                                     android:layout_height="wrap_content"
                                     android:layout_marginTop="2dp"
-                                    android:ellipsize="end"
-                                    android:fontFamily="monospace"
-                                    android:maxLines="1"
-                                    android:text="Device ID: ..."
-                                    android:textColor="@color/text_gray"
-                                    android:textSize="11sp" />
+                                    android:orientation="horizontal"
+                                    android:gravity="center_vertical">
+
+                                    <TextView
+                                        android:id="@+id/text_device_id"
+                                        android:layout_width="0dp"
+                                        android:layout_height="wrap_content"
+                                        android:layout_weight="1"
+                                        android:ellipsize="end"
+                                        android:fontFamily="monospace"
+                                        android:maxLines="1"
+                                        android:text="Device ID: ..."
+                                        android:textColor="@color/text_gray"
+                                        android:textSize="11sp" />
+
+                                    <ImageView
+                                        android:id="@+id/btn_copy_device_id"
+                                        android:layout_width="18dp"
+                                        android:layout_height="18dp"
+                                        android:layout_marginStart="8dp"
+                                        android:contentDescription="@string/copy_device_id_content_description"
+                                        android:src="@drawable/baseline_content_copy_24"
+                                        app:tint="@color/text_white"
+                                        android:background="?attr/selectableItemBackgroundBorderless"
+                                        android:clickable="true"
+                                        android:focusable="true" />
+
+                                </LinearLayout>
 
                             </LinearLayout>
 

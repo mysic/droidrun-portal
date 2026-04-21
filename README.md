@@ -20,7 +20,7 @@ Droidrun Portal is an Android accessibility service that provides real-time visu
 
 - Interactive overlay that highlights clickable, checkable, editable, scrollable, and focusable elements
 - Local control APIs (HTTP socket server, WebSocket JSON-RPC, and ContentProvider)
-- Reverse WebSocket connection for cloud control
+- Reverse WebSocket connection for self-hosted control
 - WebRTC screen streaming with auto-accept support
 - APK install from URLs (including split APKs) with optional auto-accept
 - Notification event streaming with per-event toggles
@@ -61,9 +61,9 @@ Droidrun Portal streams notification events over WebSocket when enabled in Setti
 See the [WebSocket Events documentation](docs/websocket-events.md) for setup, permissions, and event formats.
 See [Triggers and Events](docs/triggers.md) for the complete `EventType` and `TriggerSource` contract.
 
-### 🌐 Reverse Connection (Cloud)
+### 🌐 Reverse Connection (Host)
 
-Enable reverse connection to let the device initiate an outbound WebSocket connection to a host (used by Mobilerun Cloud).
+Enable reverse connection to let the device initiate an outbound WebSocket connection to your configured host, such as a local or self-hosted reverse driver.
 
 See [Reverse Connection](docs/reverse-connection.md) for configuration details and the streaming protocol.
 Trigger JSON-RPC methods are documented in [Triggers and Events](docs/triggers.md).

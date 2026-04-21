@@ -8,90 +8,20 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.Instant
 
-class PortalCloudClientTest {
+class PortalServiceClientTest {
 
     @Test
-    fun deriveRestBaseUrl_convertsDefaultJoinUrl() {
-        val url = "wss://api.mobilerun.ai/v1/providers/personal/join"
+    fun deriveRestBaseUrl_convertsSupportedHostJoinUrl() {
+        val url = "wss://portal.example.com/v1/providers/personal/join"
 
-        assertEquals("https://api.mobilerun.ai/v1", PortalCloudClient.deriveRestBaseUrl(url))
+        assertEquals("https://portal.example.com/v1", PortalServiceClient.deriveRestBaseUrl(url))
     }
 
     @Test
     fun deriveRestBaseUrl_returnsNullForUnsupportedPath() {
-        val url = "wss://api.mobilerun.ai/ws"
+        val url = "wss://portal.example.com/ws"
 
-        assertNull(PortalCloudClient.deriveRestBaseUrl(url))
-    }
-
-    @Test
-    fun deriveCloudBaseUrl_convertsApiHostToCloudHost() {
-        val url = "wss://api.mobilerun.ai/v1/providers/personal/join"
-
-        assertEquals("https://cloud.mobilerun.ai", PortalCloudClient.deriveCloudBaseUrl(url))
-    }
-
-    @Test
-    fun deriveCloudBaseUrl_acceptsCloudHost() {
-        val url = "wss://cloud.mobilerun.ai/v1/providers/personal/join"
-
-        assertEquals("https://cloud.mobilerun.ai", PortalCloudClient.deriveCloudBaseUrl(url))
-    }
-
-    @Test
-    fun deriveCloudBaseUrl_returnsNullForUnsupportedCustomHost() {
-        val url = "wss://portal.example.com/v1/providers/personal/join"
-
-        assertNull(PortalCloudClient.deriveCloudBaseUrl(url))
-    }
-
-    @Test
-    fun isOfficialMobilerunCloudConnection_acceptsEquivalentMobilerunUrlVariants() {
-        val defaultUrl = "wss://api.mobilerun.ai/v1/providers/personal/join"
-
-        assertTrue(PortalCloudClient.isOfficialMobilerunCloudConnection(defaultUrl, defaultUrl))
-        assertTrue(
-            PortalCloudClient.isOfficialMobilerunCloudConnection(
-                "wss://cloud.mobilerun.ai/v1/providers/personal/join",
-                defaultUrl,
-            ),
-        )
-        assertTrue(
-            PortalCloudClient.isOfficialMobilerunCloudConnection(
-                "  wss://cloud.mobilerun.ai/v1/providers/personal/join/  ",
-                defaultUrl,
-            ),
-        )
-        assertTrue(
-            PortalCloudClient.isOfficialMobilerunCloudConnection(
-                "wss://api.mobilerun.ai:443/v1/providers/personal/join",
-                defaultUrl,
-            ),
-        )
-    }
-
-    @Test
-    fun isOfficialMobilerunCloudConnection_rejectsUnsupportedHostsPathsAndPorts() {
-        val defaultUrl = "wss://api.mobilerun.ai/v1/providers/personal/join"
-
-        assertFalse(
-            PortalCloudClient.isOfficialMobilerunCloudConnection(
-                "wss://api.mobilerun.ai:8443/v1/providers/personal/join",
-                defaultUrl,
-            ),
-        )
-        assertFalse(
-            PortalCloudClient.isOfficialMobilerunCloudConnection(
-                "wss://portal.example.com/v1/providers/personal/join",
-                defaultUrl,
-            ),
-        )
-        assertFalse(
-            PortalCloudClient.isOfficialMobilerunCloudConnection(
-                "wss://api.mobilerun.ai/ws",
-                defaultUrl,
-            ),
-        )
+        assertNull(PortalServiceClient.deriveRestBaseUrl(url))
     }
 
     @Test
@@ -108,13 +38,13 @@ class PortalCloudClientTest {
 
         assertEquals(
             listOf("google/gemini-2.5-flash", "openai/gpt-5.1"),
-            PortalCloudClient.normalizeModelIds(body),
+            PortalServiceClient.normalizeModelIds(body),
         )
     }
 
     @Test
     fun buildModelOptions_preserves_server_order() {
-        val options = PortalCloudClient.buildModelOptions(
+        val options = PortalServiceClient.buildModelOptions(
             listOf(
                 "google/gemini-3-flash",
                 "openai/gpt-5.1",
@@ -134,21 +64,21 @@ class PortalCloudClientTest {
 
     @Test
     fun parseLaunchTaskId_reads_top_level_and_nested_ids() {
-        assertEquals("task-123", PortalCloudClient.parseLaunchTaskId("""{"id":"task-123"}"""))
-        assertEquals("task-456", PortalCloudClient.parseLaunchTaskId("""{"task":{"id":"task-456"}}"""))
-        assertEquals("task-789", PortalCloudClient.parseLaunchTaskId("""{"data":{"task":{"task_id":"task-789"}}}"""))
-        assertEquals("task-999", PortalCloudClient.parseLaunchTaskId("""{"result":{"taskId":"task-999"}}"""))
-        assertEquals("task-555", PortalCloudClient.parseLaunchTaskId("""{"data":{"taskId":"task-555"}}"""))
+        assertEquals("task-123", PortalServiceClient.parseLaunchTaskId("""{"id":"task-123"}"""))
+        assertEquals("task-456", PortalServiceClient.parseLaunchTaskId("""{"task":{"id":"task-456"}}"""))
+        assertEquals("task-789", PortalServiceClient.parseLaunchTaskId("""{"data":{"task":{"task_id":"task-789"}}}"""))
+        assertEquals("task-999", PortalServiceClient.parseLaunchTaskId("""{"result":{"taskId":"task-999"}}"""))
+        assertEquals("task-555", PortalServiceClient.parseLaunchTaskId("""{"data":{"taskId":"task-555"}}"""))
     }
 
     @Test
     fun launchRecoveryWindow_helpers_cap_delay_and_expiry() {
         val launchStartedAtMs = 10_000L
 
-        assertTrue(PortalCloudClient.hasLaunchRecoveryTimeRemaining(launchStartedAtMs, 17_999L))
-        assertEquals(1_000L, PortalCloudClient.nextLaunchRecoveryDelayMs(launchStartedAtMs, 10_000L))
-        assertEquals(250L, PortalCloudClient.nextLaunchRecoveryDelayMs(launchStartedAtMs, 17_750L))
-        assertEquals(0L, PortalCloudClient.nextLaunchRecoveryDelayMs(launchStartedAtMs, 18_000L))
+        assertTrue(PortalServiceClient.hasLaunchRecoveryTimeRemaining(launchStartedAtMs, 17_999L))
+        assertEquals(1_000L, PortalServiceClient.nextLaunchRecoveryDelayMs(launchStartedAtMs, 10_000L))
+        assertEquals(250L, PortalServiceClient.nextLaunchRecoveryDelayMs(launchStartedAtMs, 17_750L))
+        assertEquals(0L, PortalServiceClient.nextLaunchRecoveryDelayMs(launchStartedAtMs, 18_000L))
     }
 
     @Test
@@ -181,7 +111,7 @@ class PortalCloudClientTest {
             hasPrev = false,
         )
 
-        val recoveredTaskId = PortalCloudClient.findRecoverableTaskId(
+        val recoveredTaskId = PortalServiceClient.findRecoverableTaskId(
             page = page,
             deviceId = "device-123",
             prompt = "Open settings and enable Wi-Fi",
@@ -214,7 +144,7 @@ class PortalCloudClientTest {
             hasPrev = false,
         )
 
-        val recoveredTaskId = PortalCloudClient.findRecoverableTaskId(
+        val recoveredTaskId = PortalServiceClient.findRecoverableTaskId(
             page = page,
             deviceId = "device-123",
             prompt = "Open settings and enable Wi-Fi for the office setup flow",
@@ -247,7 +177,7 @@ class PortalCloudClientTest {
             hasPrev = false,
         )
 
-        val recoveredTaskId = PortalCloudClient.findRecoverableTaskId(
+        val recoveredTaskId = PortalServiceClient.findRecoverableTaskId(
             page = page,
             deviceId = "device-123",
             prompt = "Open settings and enable Wi-Fi",
@@ -280,7 +210,7 @@ class PortalCloudClientTest {
             hasPrev = false,
         )
 
-        val recoveredTaskId = PortalCloudClient.findRecoverableTaskId(
+        val recoveredTaskId = PortalServiceClient.findRecoverableTaskId(
             page = page,
             deviceId = "device-123",
             prompt = "Open slack",
@@ -293,7 +223,7 @@ class PortalCloudClientTest {
 
     @Test
     fun buildTaskPayload_includesTaskSettingsAndDisplayId() {
-        val payload = PortalCloudClient.buildTaskPayload(
+        val payload = PortalServiceClient.buildTaskPayload(
             deviceId = "device-123",
             draft = PortalTaskDraft(
                 prompt = "Open settings and enable Wi-Fi",
@@ -321,7 +251,7 @@ class PortalCloudClientTest {
 
     @Test
     fun buildLaunchTaskRequest_addsBearerAuthHeader() {
-        val request = PortalCloudClient.buildLaunchTaskRequest(
+        val request = PortalServiceClient.buildLaunchTaskRequest(
             restBaseUrl = "https://api.mobilerun.ai/v1",
             authToken = "token-abc",
             deviceId = "device-123",
@@ -343,7 +273,7 @@ class PortalCloudClientTest {
 
     @Test
     fun buildTaskStatusRequest_addsBearerAuthHeader() {
-        val request = PortalCloudClient.buildTaskStatusRequest(
+        val request = PortalServiceClient.buildTaskStatusRequest(
             restBaseUrl = "https://api.mobilerun.ai/v1",
             authToken = "token-abc",
             taskId = "task-123",
@@ -355,8 +285,8 @@ class PortalCloudClientTest {
 
     @Test
     fun buildBalanceRequest_addsBearerAuthHeader() {
-        val request = PortalCloudClient.buildBalanceRequest(
-            cloudBaseUrl = "https://cloud.mobilerun.ai",
+        val request = PortalServiceClient.buildBalanceRequest(
+            billingBaseUrl = "https://cloud.mobilerun.ai",
             authToken = "token-abc",
         )
 
@@ -366,7 +296,7 @@ class PortalCloudClientTest {
 
     @Test
     fun buildTaskTrajectoryRequest_addsBearerAuthHeader() {
-        val request = PortalCloudClient.buildTaskTrajectoryRequest(
+        val request = PortalServiceClient.buildTaskTrajectoryRequest(
             restBaseUrl = "https://api.mobilerun.ai/v1",
             authToken = "token-abc",
             taskId = "task-123",
@@ -378,7 +308,7 @@ class PortalCloudClientTest {
 
     @Test
     fun buildListTasksRequest_addsQueryPaginationAndAuthHeader() {
-        val request = PortalCloudClient.buildListTasksRequest(
+        val request = PortalServiceClient.buildListTasksRequest(
             restBaseUrl = "https://api.mobilerun.ai/v1",
             authToken = "token-abc",
             query = "open settings",
@@ -418,7 +348,7 @@ class PortalCloudClientTest {
             }
         """.trimIndent()
 
-        val result = PortalCloudClient.parseTaskHistoryPage(body)
+        val result = PortalServiceClient.parseTaskHistoryPage(body)
 
         requireNotNull(result)
         assertEquals(1, result.page)
@@ -440,7 +370,7 @@ class PortalCloudClientTest {
             }
         """.trimIndent()
 
-        val result = PortalCloudClient.parseTaskScreenshotSet(body)
+        val result = PortalServiceClient.parseTaskScreenshotSet(body)
 
         requireNotNull(result)
         assertEquals(listOf("https://example.com/one.png", "https://example.com/two.png"), result.urls)
@@ -451,7 +381,7 @@ class PortalCloudClientTest {
     fun parseTaskScreenshotSet_returnsEmptySetWhenUrlsMissing() {
         val body = """{"urls": []}"""
 
-        val result = PortalCloudClient.parseTaskScreenshotSet(body)
+        val result = PortalServiceClient.parseTaskScreenshotSet(body)
 
         requireNotNull(result)
         assertTrue(result.urls.isEmpty())
@@ -486,7 +416,7 @@ class PortalCloudClientTest {
             }
         """.trimIndent()
 
-        val result = PortalCloudClient.parseTaskTrajectory(body)
+        val result = PortalServiceClient.parseTaskTrajectory(body)
 
         requireNotNull(result)
         assertEquals(2, result.count)
@@ -505,7 +435,7 @@ class PortalCloudClientTest {
             }
         """.trimIndent()
 
-        val result = PortalCloudClient.parseBalanceInfo(body)
+        val result = PortalServiceClient.parseBalanceInfo(body)
 
         requireNotNull(result)
         assertEquals(440, result.balance)
@@ -523,7 +453,7 @@ class PortalCloudClientTest {
             }
         """.trimIndent()
 
-        val result = PortalCloudClient.parseBalanceInfo(body)
+        val result = PortalServiceClient.parseBalanceInfo(body)
 
         requireNotNull(result)
         assertEquals(0, result.balance)
@@ -541,7 +471,7 @@ class PortalCloudClientTest {
             }
         """.trimIndent()
 
-        val result = PortalCloudClient.parseBalanceInfo(body)
+        val result = PortalServiceClient.parseBalanceInfo(body)
 
         requireNotNull(result)
         assertNull(result.nextReset)
@@ -549,7 +479,7 @@ class PortalCloudClientTest {
 
     @Test
     fun buildCancelTaskRequest_addsBearerAuthHeader() {
-        val request = PortalCloudClient.buildCancelTaskRequest(
+        val request = PortalServiceClient.buildCancelTaskRequest(
             restBaseUrl = "https://api.mobilerun.ai/v1",
             authToken = "token-abc",
             taskId = "task-123",

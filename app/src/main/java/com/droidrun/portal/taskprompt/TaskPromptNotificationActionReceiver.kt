@@ -19,6 +19,10 @@ class TaskPromptNotificationActionReceiver : BroadcastReceiver() {
         Log.d(TAG, "Received task notification action=${intent.action} data=${intent.data}")
         val pendingResult = goAsync()
         val appContext = context.applicationContext
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(appContext)) {
+            pendingResult.finish()
+            return
+        }
         PortalTaskStateMonitor.initialize(appContext)
         val configManager = ConfigManager.getInstance(appContext)
         val activeTask = configManager.activePortalTask
@@ -40,7 +44,7 @@ class TaskPromptNotificationActionReceiver : BroadcastReceiver() {
         }
 
         val authToken = configManager.reverseConnectionToken.trim()
-        val restBaseUrl = PortalCloudClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
+        val restBaseUrl = PortalServiceClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
         if (authToken.isBlank() || restBaseUrl == null) {
             Log.w(TAG, "Cannot cancel task $taskId because task API is unavailable.")
             pendingResult.finish()
@@ -56,7 +60,7 @@ class TaskPromptNotificationActionReceiver : BroadcastReceiver() {
         TaskPromptNotificationManager.broadcastTaskStateChanged(appContext)
         PortalTaskStateMonitor.reconcileActiveTask(immediate = true)
 
-        val client = PortalCloudClient()
+        val client = PortalServiceClient()
         client.cancelTask(restBaseUrl, authToken, taskId) { result ->
             when (result) {
                 PortalTaskCancelResult.Success -> {

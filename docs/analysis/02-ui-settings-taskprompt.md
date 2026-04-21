@@ -3,7 +3,7 @@
 ## 1. SettingsActivity
 - 作用：应用设置界面，负责配置管理、权限开关、服务器与WebSocket设置、反向连接、自动化与事件过滤等。
 - 关键类/方法：SettingsActivity : AppCompatActivity, ConfigManager.ConfigChangeListener；onCreate() 初始化各设置项，onResume() 同步权限与配置。
-- 调用关系：ConfigManager 管理配置，PortalCloudClient 处理云端交互，KeepAliveController 控制保活，DroidrunNotificationListener/ReverseConnectionService 相关服务。
+- 调用关系：ConfigManager 管理配置，PortalServiceClient 处理服务端交互，KeepAliveController 控制保活，DroidrunNotificationListener/ReverseConnectionService 相关服务。
 - 生命周期：标准Activity生命周期，需处理权限动态申请与配置同步。
 - 权限依赖：通知、悬浮窗、存储、网络等多项权限。
 - 易错点：权限动态申请流程复杂，配置变更需及时同步到界面。
@@ -21,7 +21,7 @@
 ## 3. TaskDetailsActivity
 - 作用：任务详情界面，展示任务执行轨迹、截图、状态、错误等详细信息。
 - 关键类/方法：TaskDetailsActivity : AppCompatActivity，createIntent() 工厂方法，GalleryPreviewItem 数据结构。
-- 调用关系：PortalCloudClient 获取任务详情，OkHttpClient 拉取截图，PortalTaskTrajectoryUiSupport/PortalTaskScreenshotUiSupport 辅助展示。
+- 调用关系：PortalServiceClient 获取任务详情，OkHttpClient 拉取截图，PortalTaskTrajectoryUiSupport/PortalTaskScreenshotUiSupport 辅助展示。
 - 生命周期：标准Activity生命周期，需处理异步加载与UI状态切换。
 - 权限依赖：网络、存储（截图下载）。
 - 易错点：异步加载、图片缓存、错误处理、UI状态切换。

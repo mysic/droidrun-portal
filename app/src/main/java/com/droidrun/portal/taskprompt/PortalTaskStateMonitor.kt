@@ -19,19 +19,27 @@ object PortalTaskStateMonitor {
     private val mainHandler: Handler by lazy(LazyThreadSafetyMode.NONE) {
         Handler(Looper.getMainLooper())
     }
-    private val portalCloudClient = PortalCloudClient()
+    private val portalServiceClient = PortalServiceClient()
 
     @Volatile
     private var statusRequestInFlight = false
     private var pollRunnable: Runnable? = null
 
     fun initialize(context: Context) {
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(context.applicationContext)) {
+            stopScheduledPoll()
+            return
+        }
         if (::appContext.isInitialized) return
         appContext = context.applicationContext
     }
 
     fun reconcileActiveTask(immediate: Boolean = false) {
         if (!::appContext.isInitialized) return
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(appContext)) {
+            stopScheduledPoll()
+            return
+        }
         if (Looper.myLooper() != Looper.getMainLooper()) {
             mainHandler.post { reconcileActiveTask(immediate) }
             return
@@ -96,6 +104,10 @@ object PortalTaskStateMonitor {
 
     private fun pollActiveTaskStatus() {
         if (!::appContext.isInitialized) return
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(appContext)) {
+            stopScheduledPoll()
+            return
+        }
 
         val configManager = ConfigManager.getInstance(appContext)
         val activeTask = configManager.activePortalTask ?: run {
@@ -113,14 +125,14 @@ object PortalTaskStateMonitor {
 
         val authToken = configManager.reverseConnectionToken.trim()
         val restBaseUrl =
-            PortalCloudClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
+            PortalServiceClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
         if (authToken.isBlank() || restBaseUrl == null) {
             stopScheduledPoll()
             return
         }
 
         statusRequestInFlight = true
-        portalCloudClient.getTaskStatus(restBaseUrl, authToken, activeTask.taskId) { result ->
+        portalServiceClient.getTaskStatus(restBaseUrl, authToken, activeTask.taskId) { result ->
             mainHandler.post {
                 statusRequestInFlight = false
                 when (result) {

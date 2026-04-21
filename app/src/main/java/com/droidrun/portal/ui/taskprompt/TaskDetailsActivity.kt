@@ -26,7 +26,7 @@ import com.droidrun.portal.databinding.ActivityTaskDetailsBinding
 import com.droidrun.portal.databinding.ItemTaskDetailsScreenshotOptionBinding
 import com.droidrun.portal.databinding.ItemTaskDetailsScreenshotPreviewBinding
 import com.droidrun.portal.databinding.ItemTaskDetailsTrajectoryEventBinding
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
 import com.droidrun.portal.taskprompt.PortalTaskDetails
 import com.droidrun.portal.taskprompt.PortalTaskDetailsResult
 import com.droidrun.portal.taskprompt.PortalTaskScreenshotResult
@@ -59,7 +59,7 @@ class TaskDetailsActivity : AppCompatActivity() {
         val errorMessage: String? = null,
     )
 
-    private val portalCloudClient = PortalCloudClient()
+    private val portalServiceClient = PortalServiceClient()
     private val screenshotClient = OkHttpClient()
     private val screenshotUrls = mutableListOf<String>()
     private val screenshotBitmapCache = LinkedHashMap<String, Bitmap>()
@@ -153,6 +153,10 @@ class TaskDetailsActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(this, showToast = true)) {
+            finish()
+            return
+        }
         binding = ActivityTaskDetailsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -225,7 +229,7 @@ class TaskDetailsActivity : AppCompatActivity() {
         loadingView.visibility = View.VISIBLE
         errorView.visibility = View.GONE
         contentView.visibility = View.GONE
-        portalCloudClient.getTask(restBaseUrl, authToken, taskId) { result ->
+        portalServiceClient.getTask(restBaseUrl, authToken, taskId) { result ->
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
 
@@ -356,7 +360,7 @@ class TaskDetailsActivity : AppCompatActivity() {
             trajectoryErrorMessage = null
         }
         renderTrajectorySectionState()
-        portalCloudClient.getTaskTrajectory(restBaseUrl, authToken, taskId) { result ->
+        portalServiceClient.getTaskTrajectory(restBaseUrl, authToken, taskId) { result ->
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
 
@@ -495,7 +499,7 @@ class TaskDetailsActivity : AppCompatActivity() {
         screenshotImage.setImageDrawable(null)
         screenshotGalleryList.visibility =
             if (isScreenshotGalleryMode && galleryItems.isNotEmpty()) View.VISIBLE else View.GONE
-        portalCloudClient.getTaskScreenshots(restBaseUrl, authToken, taskId) { result ->
+        portalServiceClient.getTaskScreenshots(restBaseUrl, authToken, taskId) { result ->
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
 
@@ -860,7 +864,7 @@ class TaskDetailsActivity : AppCompatActivity() {
     }
 
     private fun currentRestBaseUrl(): String? {
-        return PortalCloudClient.deriveRestBaseUrl(
+        return PortalServiceClient.deriveRestBaseUrl(
             ConfigManager.getInstance(this).reverseConnectionUrlOrDefault,
         )
     }

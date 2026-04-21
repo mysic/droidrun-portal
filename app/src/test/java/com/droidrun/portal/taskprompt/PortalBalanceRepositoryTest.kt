@@ -24,7 +24,7 @@ class PortalBalanceRepositoryTest {
         PortalBalanceRepository.observeFingerprint(fingerprint)
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = LEGACY_BILLING_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, callback ->
                 loadCount += 1
@@ -44,7 +44,7 @@ class PortalBalanceRepositoryTest {
         val cachedStates = mutableListOf<PortalBalanceCacheState>()
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, _ -> loadCount += 1 },
         ) { cachedStates.add(it) }
@@ -67,7 +67,7 @@ class PortalBalanceRepositoryTest {
 
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             force = true,
             loader = { _, _, callback ->
@@ -101,7 +101,7 @@ class PortalBalanceRepositoryTest {
 
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             force = true,
             loader = { _, _, callback ->
@@ -130,7 +130,7 @@ class PortalBalanceRepositoryTest {
         val retryStates = mutableListOf<PortalBalanceCacheState>()
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, callback ->
                 loadCount += 1
@@ -153,7 +153,7 @@ class PortalBalanceRepositoryTest {
         PortalBalanceRepository.observeFingerprint(fingerprint)
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, callback ->
                 loadCount += 1
@@ -176,7 +176,7 @@ class PortalBalanceRepositoryTest {
         val cachedStates = mutableListOf<PortalBalanceCacheState>()
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, _ -> loadCount += 1 },
         ) { cachedStates.add(it) }
@@ -196,7 +196,7 @@ class PortalBalanceRepositoryTest {
         PortalBalanceRepository.observeFingerprint(fingerprint)
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, callback ->
                 loadCount += 1
@@ -216,7 +216,7 @@ class PortalBalanceRepositoryTest {
         val cachedStates = mutableListOf<PortalBalanceCacheState>()
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, _ -> loadCount += 1 },
         ) { cachedStates.add(it) }
@@ -246,7 +246,7 @@ class PortalBalanceRepositoryTest {
         PortalBalanceRepository.observeFingerprint(fingerprint)
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = CLOUD_BASE_URL,
+            billingBaseUrl = CLOUD_BASE_URL,
             authToken = AUTH_TOKEN,
             loader = { _, _, callback ->
                 callback(PortalBalanceResult.Success(info))
@@ -255,11 +255,11 @@ class PortalBalanceRepositoryTest {
     }
 
     private fun fingerprint(authToken: String = AUTH_TOKEN): String {
-        return PortalBalanceRepository.buildFingerprint(CLOUD_BASE_URL, authToken)
+        return PortalBalanceRepository.buildFingerprint(LEGACY_BILLING_BASE_URL, authToken)
     }
 
     companion object {
-        private const val CLOUD_BASE_URL = "https://cloud.mobilerun.ai"
+        private const val LEGACY_BILLING_BASE_URL = "https://cloud.mobilerun.ai"
         private const val AUTH_TOKEN = "token-abc"
     }
 }

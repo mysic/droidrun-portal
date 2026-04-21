@@ -23,7 +23,7 @@ import com.droidrun.portal.R
 import com.droidrun.portal.config.ConfigManager
 import com.droidrun.portal.databinding.ActivityTaskHistoryBinding
 import com.droidrun.portal.databinding.ItemTaskHistoryBinding
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
 import com.droidrun.portal.taskprompt.PortalTaskHistoryItem
 import com.droidrun.portal.taskprompt.PortalTaskHistoryResult
 import com.droidrun.portal.taskprompt.PortalTaskStatusAppearance
@@ -41,7 +41,7 @@ class TaskHistoryActivity : AppCompatActivity() {
         }
     }
 
-    private val portalCloudClient = PortalCloudClient()
+    private val portalServiceClient = PortalServiceClient()
     private val handler = Handler(Looper.getMainLooper())
     private val items = mutableListOf<PortalTaskHistoryItem>()
 
@@ -72,6 +72,10 @@ class TaskHistoryActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(this, showToast = true)) {
+            finish()
+            return
+        }
         binding = ActivityTaskHistoryBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -153,7 +157,7 @@ class TaskHistoryActivity : AppCompatActivity() {
         val nextPage = if (reset) 1 else currentPage + 1
         val query = searchInput.text?.toString()?.trim().orEmpty().takeIf { it.isNotBlank() }
         val localRequestToken = ++requestToken
-        portalCloudClient.listTasks(
+        portalServiceClient.listTasks(
             restBaseUrl = restBaseUrl,
             authToken = authToken,
             query = query,
@@ -241,7 +245,7 @@ class TaskHistoryActivity : AppCompatActivity() {
     }
 
     private fun currentRestBaseUrl(): String? {
-        return PortalCloudClient.deriveRestBaseUrl(
+        return PortalServiceClient.deriveRestBaseUrl(
             ConfigManager.getInstance(this).reverseConnectionUrlOrDefault,
         )
     }

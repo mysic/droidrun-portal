@@ -18,7 +18,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Connect to a custom WebSocket server"
+        android:text="@string/custom_connection_subtitle"
         android:textColor="@color/text_gray"
         android:textSize="14sp"
         android:layout_marginBottom="20dp" />
@@ -38,7 +38,7 @@
             android:layout_height="wrap_content"
             android:inputType="textUri"
             android:textColor="@color/text_white"
-            android:hint="ws://localhost:8083/v1/devices/{deviceId}/join" />
+            android:hint="@string/custom_connection_url_hint" />
     </com.google.android.material.textfield.TextInputLayout>
 
     <com.google.android.material.textfield.TextInputLayout
@@ -62,7 +62,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Use {deviceId} in URL to auto-replace with device ID"
+        android:text="@string/custom_connection_helper"
         android:textColor="@color/text_hint"
         android:textSize="12sp"
         android:layout_marginBottom="20dp" />

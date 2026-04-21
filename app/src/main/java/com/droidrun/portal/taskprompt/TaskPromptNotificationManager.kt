@@ -24,6 +24,10 @@ object TaskPromptNotificationManager {
     private const val TAG = "TaskPromptNotif"
 
     fun showActiveTask(context: Context, record: PortalActiveTaskRecord) {
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(context.applicationContext)) {
+            return
+        }
+
         val phase = PortalTaskTracking.notificationPhaseForStatus(record.lastStatus)
         if (phase == PortalTaskNotificationPhase.NONE || phase == PortalTaskNotificationPhase.TERMINAL) {
             Log.d(TAG, "Active notification suppressed for taskId=${record.taskId} phase=$phase")
@@ -52,6 +56,10 @@ object TaskPromptNotificationManager {
         details: PortalTaskDetails?,
         fallbackMessage: String,
     ) {
+        if (!PortalTaskUiSupport.ensureTaskFeaturesAvailable(context.applicationContext)) {
+            return
+        }
+
         val title = when (record.lastStatus) {
             PortalTaskTracking.STATUS_COMPLETED -> context.getString(R.string.task_prompt_notification_completed_title)
             PortalTaskTracking.STATUS_FAILED -> context.getString(R.string.task_prompt_notification_failed_title)

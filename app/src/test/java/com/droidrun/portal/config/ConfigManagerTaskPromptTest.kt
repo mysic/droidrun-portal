@@ -3,7 +3,7 @@ package com.droidrun.portal.config
 import android.content.Context
 import android.content.SharedPreferences
 import com.droidrun.portal.taskprompt.PortalActiveTaskRecord
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
 import com.droidrun.portal.taskprompt.PortalTaskSettings
 import com.droidrun.portal.taskprompt.PortalTaskTracking
 import io.mockk.Runs
@@ -45,12 +45,12 @@ class ConfigManagerTaskPromptTest {
 
         val settings = configManager.taskPromptSettings
 
-        assertEquals(PortalCloudClient.DEFAULT_MODEL_ID, settings.llmModel)
-        assertEquals(PortalCloudClient.DEFAULT_REASONING, settings.reasoning)
-        assertEquals(PortalCloudClient.DEFAULT_VISION, settings.vision)
-        assertEquals(PortalCloudClient.DEFAULT_MAX_STEPS, settings.maxSteps)
-        assertEquals(PortalCloudClient.DEFAULT_TEMPERATURE, settings.temperature, 0.0)
-        assertEquals(PortalCloudClient.DEFAULT_EXECUTION_TIMEOUT, settings.executionTimeout)
+        assertEquals(PortalServiceClient.DEFAULT_MODEL_ID, settings.llmModel)
+        assertEquals(PortalServiceClient.DEFAULT_REASONING, settings.reasoning)
+        assertEquals(PortalServiceClient.DEFAULT_VISION, settings.vision)
+        assertEquals(PortalServiceClient.DEFAULT_MAX_STEPS, settings.maxSteps)
+        assertEquals(PortalServiceClient.DEFAULT_TEMPERATURE, settings.temperature, 0.0)
+        assertEquals(PortalServiceClient.DEFAULT_EXECUTION_TIMEOUT, settings.executionTimeout)
     }
 
     @Test

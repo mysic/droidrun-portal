@@ -1,17 +1,17 @@
 # 23-taskprompt 业务域模块
 
-## 1. PortalCloudClient
-- 作用：对接 Mobilerun/Portal 云端任务接口，负责模型列表、余额、任务启动、任务详情、轨迹、截图、取消等 HTTP 交互。
-- 关键类/方法：PortalCloudClient，fallbackModelOptions()，deriveRestBaseUrl() 以及各类 task/balance/models 请求。
+## 1. PortalServiceClient
+- 作用：对接 Mobilerun/Portal 服务端任务接口，负责模型列表、余额、任务启动、任务详情、轨迹、截图、取消等 HTTP 交互。
+- 关键类/方法：PortalServiceClient，fallbackModelOptions()，deriveRestBaseUrl()，deriveBillingBaseUrl() 以及各类 task/balance/models 请求。
 - 调用关系：被 MainActivity、SettingsActivity、TaskDetailsActivity、TaskHistoryActivity、PortalTaskLaunchCoordinator 等调用。
 - 生命周期：通常随页面控制器或业务服务创建。
 - 易错点：Reverse WebSocket URL 会被换算成 REST base URL；模型列表支持回退；HTTP 错误要区分硬失败与可重试失败。
-- 证据链：[app/src/main/java/com/droidrun/portal/taskprompt/PortalCloudClient.kt](../../app/src/main/java/com/droidrun/portal/taskprompt/PortalCloudClient.kt)
+- 证据链：[app/src/main/java/com/droidrun/portal/taskprompt/PortalServiceClient.kt](../../app/src/main/java/com/droidrun/portal/taskprompt/PortalServiceClient.kt)
 
 ## 2. PortalTaskLaunchCoordinator
-- 作用：任务启动编排器，负责在本地校验 API key、URL、活跃任务状态，再调用云端启动任务，并把返回结果写入 ConfigManager 与通知系统。
+- 作用：任务启动编排器，负责在本地校验 API key、URL、活跃任务状态，再调用服务端启动任务，并把返回结果写入 ConfigManager 与通知系统。
 - 关键类/方法：launchPrompt()，buildActiveTaskRecord()。
-- 调用关系：依赖 ConfigManager、PortalCloudClient、TaskPromptNotificationManager、PortalTaskStateMonitor。
+- 调用关系：依赖 ConfigManager、PortalServiceClient、TaskPromptNotificationManager、PortalTaskStateMonitor。
 - 易错点：这里既做了启动前校验，也做了启动后本地状态落库；如果只看 UI 控件，很容易漏掉这层真正的业务编排。
 - 证据链：[app/src/main/java/com/droidrun/portal/taskprompt/PortalTaskLaunchCoordinator.kt](../../app/src/main/java/com/droidrun/portal/taskprompt/PortalTaskLaunchCoordinator.kt)
 
@@ -34,7 +34,7 @@
 
 ## 5. 这层为什么要单独成包
 - UI 层只负责交互和展示。
-- taskprompt 包负责“云端任务”这条业务线的模型、状态机、通知、轮询与网络协议，属于完整的业务域实现。
+- taskprompt 包负责“服务端任务”这条业务线的模型、状态机、通知、轮询与网络协议，属于完整的业务域实现。
 
 ---
 

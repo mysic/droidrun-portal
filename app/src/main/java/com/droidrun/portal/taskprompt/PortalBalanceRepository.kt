@@ -24,8 +24,8 @@ object PortalBalanceRepository {
     private val entries = mutableMapOf<String, Entry>()
     private var activeFingerprint: String? = null
 
-    fun buildFingerprint(cloudBaseUrl: String, authToken: String): String {
-        return "${cloudBaseUrl.trim()}|${authToken.trim()}"
+    fun buildFingerprint(billingBaseUrl: String, authToken: String): String {
+        return "${billingBaseUrl.trim()}|${authToken.trim()}"
     }
 
     fun observeFingerprint(fingerprint: String?) {
@@ -51,7 +51,7 @@ object PortalBalanceRepository {
 
     fun loadBalance(
         fingerprint: String,
-        cloudBaseUrl: String,
+        billingBaseUrl: String,
         authToken: String,
         force: Boolean = false,
         loader: PortalBalanceLoader,
@@ -86,7 +86,7 @@ object PortalBalanceRepository {
             return
         }
 
-        loader(cloudBaseUrl, authToken) { result ->
+        loader(billingBaseUrl, authToken) { result ->
             val resolvedState: PortalBalanceCacheState
             val callbacks: List<(PortalBalanceCacheState) -> Unit>
 

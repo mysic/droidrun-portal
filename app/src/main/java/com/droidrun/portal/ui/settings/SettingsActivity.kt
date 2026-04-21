@@ -14,6 +14,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.droidrun.portal.config.ConfigManager
+import com.droidrun.portal.config.PortalRuntimeMode
 import com.droidrun.portal.databinding.ActivitySettingsBinding
 import com.droidrun.portal.events.model.EventType
 import com.droidrun.portal.keepalive.KeepAliveController
@@ -22,7 +23,7 @@ import com.droidrun.portal.service.ReverseConnectionService
 import com.droidrun.portal.state.ConnectionState
 import com.droidrun.portal.state.ConnectionStateManager
 import com.droidrun.portal.taskprompt.PortalBalanceRepository
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
 import com.droidrun.portal.triggers.TriggerRepository
 import com.droidrun.portal.ui.addWhitespaceStrippingWatcher
 import com.droidrun.portal.ui.triggers.TriggerRulesActivity
@@ -32,7 +33,7 @@ class SettingsActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener
 
     private lateinit var configManager: ConfigManager
     private lateinit var binding: ActivitySettingsBinding
-    private val portalCloudClient = PortalCloudClient()
+    private val portalServiceClient = PortalServiceClient()
     private var suppressSocketServerSwitchCallback = false
     private var suppressWebSocketSwitchCallback = false
 
@@ -82,6 +83,12 @@ class SettingsActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener
     }
 
     private fun setupCreditsSection() {
+        if (PortalRuntimeMode.HOST_ONLY_BUILD) {
+            binding.textCreditsSectionHeader.visibility = View.GONE
+            binding.cardCreditsSettings.visibility = View.GONE
+            return
+        }
+
         binding.btnRefreshCreditsSettings.setOnClickListener {
             refreshCreditsBalance(force = true)
         }
@@ -377,36 +384,47 @@ class SettingsActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener
     }
 
     private fun refreshCreditsBalance(force: Boolean = false) {
+        if (PortalRuntimeMode.HOST_ONLY_BUILD) {
+            renderCreditsUi()
+            return
+        }
+
         val authToken = currentCreditsToken()
-        val cloudBaseUrl = PortalCloudClient.deriveCloudBaseUrl(currentCreditsReverseConnectionUrl())
-        val fingerprint = currentCreditsFingerprint(authToken, cloudBaseUrl)
+        val billingBaseUrl = PortalServiceClient.deriveBillingBaseUrl(currentCreditsReverseConnectionUrl())
+        val fingerprint = currentCreditsFingerprint(authToken, billingBaseUrl)
         PortalBalanceRepository.observeFingerprint(fingerprint)
 
-        renderCreditsUi(authToken, cloudBaseUrl)
+        renderCreditsUi(authToken, billingBaseUrl)
 
-        if (authToken.isBlank() || cloudBaseUrl == null || fingerprint == null) {
+        if (authToken.isBlank() || billingBaseUrl == null || fingerprint == null) {
             return
         }
 
         PortalBalanceRepository.loadBalance(
             fingerprint = fingerprint,
-            cloudBaseUrl = cloudBaseUrl,
+            billingBaseUrl = billingBaseUrl,
             authToken = authToken,
             force = force,
-            loader = portalCloudClient::loadBalance,
+            loader = portalServiceClient::loadBalance,
         ) {
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
 
-                renderCreditsUi(authToken, cloudBaseUrl)
+                renderCreditsUi(authToken, billingBaseUrl)
             }
         }
     }
 
     private fun renderCreditsUi(
         authToken: String = currentCreditsToken(),
-        cloudBaseUrl: String? = PortalCloudClient.deriveCloudBaseUrl(currentCreditsReverseConnectionUrl()),
+        billingBaseUrl: String? = PortalServiceClient.deriveBillingBaseUrl(currentCreditsReverseConnectionUrl()),
     ) {
+        if (PortalRuntimeMode.HOST_ONLY_BUILD) {
+            binding.textCreditsSectionHeader.visibility = View.GONE
+            binding.cardCreditsSettings.visibility = View.GONE
+            return
+        }
+
         val showSection = authToken.isNotBlank()
         binding.textCreditsSectionHeader.visibility = if (showSection) View.VISIBLE else View.GONE
         binding.cardCreditsSettings.visibility = if (showSection) View.VISIBLE else View.GONE
@@ -414,8 +432,8 @@ class SettingsActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener
             return
         }
 
-        val creditsState = PortalBalanceRepository.snapshot(currentCreditsFingerprint(authToken, cloudBaseUrl))
-        val info = if (cloudBaseUrl != null) creditsState.info else null
+        val creditsState = PortalBalanceRepository.snapshot(currentCreditsFingerprint(authToken, billingBaseUrl))
+        val info = if (billingBaseUrl != null) creditsState.info else null
         val balanceLine = info?.let {
             getString(
                 com.droidrun.portal.R.string.credits_balance_line,
@@ -435,7 +453,7 @@ class SettingsActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener
         binding.cardCreditsMetricsSettings.visibility = if (hasMetrics) View.VISIBLE else View.GONE
 
         val message = when {
-            cloudBaseUrl == null -> getString(com.droidrun.portal.R.string.credits_unsupported_host)
+            billingBaseUrl == null -> getString(com.droidrun.portal.R.string.credits_unsupported_host)
             creditsState.isLoading && hasMetrics -> getString(com.droidrun.portal.R.string.credits_refreshing)
             creditsState.isLoading -> getString(com.droidrun.portal.R.string.credits_loading)
             !creditsState.message.isNullOrBlank() -> creditsState.message
@@ -445,18 +463,18 @@ class SettingsActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener
         binding.textCreditsMessageSettings.visibility =
             if (message.isNullOrBlank()) View.GONE else View.VISIBLE
         binding.btnRefreshCreditsSettings.isEnabled =
-            !creditsState.isLoading && authToken.isNotBlank() && cloudBaseUrl != null
+            !creditsState.isLoading && authToken.isNotBlank() && billingBaseUrl != null
     }
 
     private fun formatCreditsCount(value: Int): String {
         return NumberFormat.getIntegerInstance().format(value)
     }
 
-    private fun currentCreditsFingerprint(authToken: String, cloudBaseUrl: String?): String? {
-        if (authToken.isBlank() || cloudBaseUrl == null) {
+    private fun currentCreditsFingerprint(authToken: String, billingBaseUrl: String?): String? {
+        if (authToken.isBlank() || billingBaseUrl == null) {
             return null
         }
-        return PortalBalanceRepository.buildFingerprint(cloudBaseUrl, authToken)
+        return PortalBalanceRepository.buildFingerprint(billingBaseUrl, authToken)
     }
 
     private fun bindCreditsLine(view: TextView, text: String?): Boolean {

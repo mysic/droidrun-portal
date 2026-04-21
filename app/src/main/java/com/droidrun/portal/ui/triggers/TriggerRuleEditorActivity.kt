@@ -14,10 +14,12 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
+import com.droidrun.portal.R
 import com.droidrun.portal.config.ConfigManager
 import com.droidrun.portal.databinding.ActivityTriggerRuleEditorBinding
 import com.droidrun.portal.databinding.DialogTriggerDurationPickerBinding
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
+import com.droidrun.portal.taskprompt.PortalTaskUiSupport
 import com.droidrun.portal.triggers.TriggerBusyPolicy
 import com.droidrun.portal.triggers.TriggerEditorSupport
 import com.droidrun.portal.triggers.TriggerNetworkType
@@ -64,7 +66,7 @@ class TriggerRuleEditorActivity : AppCompatActivity() {
     private lateinit var settingsController: TaskPromptSettingsPanelController
     private lateinit var weekdayChips: List<Pair<Int, Chip>>
 
-    private val portalCloudClient = PortalCloudClient()
+    private val portalServiceClient = PortalServiceClient()
     private val configManager by lazy { ConfigManager.getInstance(this) }
     private val sourceOptions by lazy {
         TriggerSource.entries.map { LabeledValue(TriggerUiSupport.sourceLabel(it), it) }
@@ -112,6 +114,7 @@ class TriggerRuleEditorActivity : AppCompatActivity() {
         binding = ActivityTriggerRuleEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
         settingsController = TaskPromptSettingsPanelController(this, binding.taskPromptSettingsPanel)
+        applyTaskFeatureAvailabilityUi()
         lastExactAlarmAvailable = hasExactAlarmAccess()
         weekdayChips = listOf(
             Calendar.SUNDAY to binding.chipSunday,
@@ -280,10 +283,13 @@ class TriggerRuleEditorActivity : AppCompatActivity() {
             false,
         )
 
-        binding.switchOverrideTaskSettings.isChecked = seed.taskSettingsOverride != null
-        binding.overrideTaskSettingsContainer.isVisible = seed.taskSettingsOverride != null
+        val taskFeaturesEnabled = PortalTaskUiSupport.areTaskFeaturesEnabled()
+        val showOverrideTaskSettings = taskFeaturesEnabled && seed.taskSettingsOverride != null
+        binding.switchOverrideTaskSettings.isEnabled = taskFeaturesEnabled
+        binding.switchOverrideTaskSettings.isChecked = showOverrideTaskSettings
+        binding.overrideTaskSettingsContainer.isVisible = showOverrideTaskSettings
         settingsController.applySettings(seed.taskSettingsOverride ?: defaults)
-        settingsController.setEnabled(seed.taskSettingsOverride != null)
+        settingsController.setEnabled(showOverrideTaskSettings)
 
         updateSourceSelection(seed.source)
         updateRunLimitMode(selectedRunLimitMode, seed)
@@ -291,20 +297,28 @@ class TriggerRuleEditorActivity : AppCompatActivity() {
     }
 
     private fun loadModelOptions() {
+        if (!PortalTaskUiSupport.areTaskFeaturesEnabled()) {
+            settingsController.setModelOptions(PortalServiceClient.fallbackModelOptions())
+            settingsController.setModelsLoading(false)
+            binding.modelWarningText.isVisible = true
+            binding.modelWarningText.text = getString(R.string.task_prompt_host_only_disabled)
+            return
+        }
+
         val authToken = configManager.reverseConnectionToken.trim()
-        val restBaseUrl = PortalCloudClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
+        val restBaseUrl = PortalServiceClient.deriveRestBaseUrl(configManager.reverseConnectionUrlOrDefault)
 
         if (authToken.isBlank() || restBaseUrl == null) {
-            settingsController.setModelOptions(PortalCloudClient.fallbackModelOptions())
+            settingsController.setModelOptions(PortalServiceClient.fallbackModelOptions())
             settingsController.setModelsLoading(false)
             binding.modelWarningText.isVisible = true
             binding.modelWarningText.text =
-                "Using fallback models because the current Mobilerun connection is not configured."
+                "Using fallback models because no compatible task service is configured."
             return
         }
 
         settingsController.setModelsLoading(true)
-        portalCloudClient.loadModels(restBaseUrl, authToken) { result ->
+        portalServiceClient.loadModels(restBaseUrl, authToken) { result ->
             runOnUiThread {
                 settingsController.setModelsLoading(false)
                 if (result.loadedFromServer && result.models.isNotEmpty()) {
@@ -593,6 +607,8 @@ class TriggerRuleEditorActivity : AppCompatActivity() {
 
         val overrideSettings = if (binding.switchOverrideTaskSettings.isChecked) {
             settingsController.buildSettingsOrShowErrors() ?: return null
+        } else if (!PortalTaskUiSupport.areTaskFeaturesEnabled()) {
+            originalRule?.taskSettingsOverride
         } else {
             null
         }
@@ -713,9 +729,33 @@ class TriggerRuleEditorActivity : AppCompatActivity() {
     }
 
     private fun testRule() {
+        if (!PortalTaskUiSupport.areTaskFeaturesEnabled()) {
+            showTaskFeaturesDisabledToast()
+            return
+        }
+
         val savedRule = saveRule(finishAfterSave = false, showToast = false) ?: return
         TriggerRuntime.launchTest(savedRule.id)
         Toast.makeText(this, "Test run requested for ${savedRule.name}", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun applyTaskFeatureAvailabilityUi() {
+        if (PortalTaskUiSupport.areTaskFeaturesEnabled()) {
+            return
+        }
+
+        binding.switchOverrideTaskSettings.isEnabled = false
+        binding.switchOverrideTaskSettings.isChecked = false
+        binding.overrideTaskSettingsContainer.isVisible = false
+        settingsController.setEnabled(false)
+        settingsController.setModelsLoading(false)
+        settingsController.setModelOptions(PortalServiceClient.fallbackModelOptions())
+        binding.modelWarningText.isVisible = true
+        binding.modelWarningText.text = getString(R.string.task_prompt_host_only_disabled)
+    }
+
+    private fun showTaskFeaturesDisabledToast() {
+        Toast.makeText(this, getString(R.string.task_prompt_host_only_disabled), Toast.LENGTH_SHORT).show()
     }
 
     private fun deleteRule() {

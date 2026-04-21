@@ -7,10 +7,11 @@ import android.telephony.TelephonyManager
 import androidx.core.content.edit
 import com.droidrun.portal.events.model.EventType
 import com.droidrun.portal.taskprompt.PortalActiveTaskRecord
-import com.droidrun.portal.taskprompt.PortalCloudClient
+import com.droidrun.portal.taskprompt.PortalServiceClient
 import com.droidrun.portal.taskprompt.PortalTaskSettings
 import com.droidrun.portal.taskprompt.PortalTaskTracking
 import com.droidrun.portal.taskprompt.TaskPromptSettingsConstraints
+import java.net.URI
 
 /**
  * Centralized configuration manager for Droidrun Portal
@@ -90,8 +91,9 @@ class ConfigManager private constructor(private val context: Context) {
         private const val DEFAULT_OFFSET = 0
         private const val DEFAULT_SOCKET_PORT = 8080
         private const val DEFAULT_WEBSOCKET_PORT = 8081
-        private const val DEFAULT_REVERSE_CONNECTION_URL =
-            "wss://api.mobilerun.ai/v1/providers/personal/join"
+        // For backward compatibility with pre-2024 cloud builds only
+        private const val LEGACY_CLOUD_JOIN_PATH = "/v1/providers/personal/join"
+        private const val DEFAULT_REVERSE_CONNECTION_URL = ""
 
         // TODO replace
         @Volatile
@@ -118,6 +120,8 @@ class ConfigManager private constructor(private val context: Context) {
         if (sharedPrefs.contains(KEY_REVERSE_CONNECTION_ENABLED)) {
             sharedPrefs.edit { putBoolean(KEY_REVERSE_CONNECTION_ENABLED, false) }
         }
+        // Only needed for legacy cloud config migration
+        migrateAwayFromOfficialCloudDefaultsIfNeeded()
         migrateTaskPromptModelPrefsIfNeeded()
     }
 
@@ -214,7 +218,12 @@ class ConfigManager private constructor(private val context: Context) {
             return if (stored.isNullOrBlank()) DEFAULT_REVERSE_CONNECTION_URL else stored
         }
         set(value) {
-            sharedPrefs.edit { putString(KEY_REVERSE_CONNECTION_URL, value) }
+            sharedPrefs.edit {
+                putString(
+                    KEY_REVERSE_CONNECTION_URL,
+                    normalizeReverseConnectionUrlForStorage(value),
+                )
+            }
         }
 
     val reverseConnectionUrlOrDefault: String
@@ -229,7 +238,7 @@ class ConfigManager private constructor(private val context: Context) {
     val reverseConnectionUrlForDisplay: String
         get() = reverseConnectionUrlOrDefault.replace(DEVICE_ID_PLACEHOLDER, deviceID)
 
-    // Reverse Connection Token (Optional, for authenticating with Host/Cloud)
+    // Reverse Connection Token (Optional, for authenticating with the configured host)
     var reverseConnectionToken: String
         get() = secretsPrefs.getString(KEY_REVERSE_CONNECTION_TOKEN, "") ?: ""
         set(value) {
@@ -473,13 +482,13 @@ class ConfigManager private constructor(private val context: Context) {
     var taskPromptDefaultModel: String
         get() = sharedPrefs.getString(
             KEY_TASK_PROMPT_DEFAULT_MODEL,
-            PortalCloudClient.DEFAULT_MODEL_ID,
-        )?.takeIf { it.isNotBlank() } ?: PortalCloudClient.DEFAULT_MODEL_ID
+            PortalServiceClient.DEFAULT_MODEL_ID,
+        )?.takeIf { it.isNotBlank() } ?: PortalServiceClient.DEFAULT_MODEL_ID
         set(value) {
             sharedPrefs.edit {
                 putString(
                     KEY_TASK_PROMPT_DEFAULT_MODEL,
-                    value.ifBlank { PortalCloudClient.DEFAULT_MODEL_ID },
+                    value.ifBlank { PortalServiceClient.DEFAULT_MODEL_ID },
                 )
             }
         }
@@ -487,7 +496,7 @@ class ConfigManager private constructor(private val context: Context) {
     val effectiveTaskPromptModel: String
         get() = taskPromptModel.takeIf { it.isNotBlank() }
             ?: taskPromptDefaultModel.takeIf { it.isNotBlank() }
-            ?: PortalCloudClient.DEFAULT_MODEL_ID
+            ?: PortalServiceClient.DEFAULT_MODEL_ID
 
     private fun migrateSecretPrefsIfNeeded() {
         migrateSecretKey(KEY_AUTH_TOKEN)
@@ -507,14 +516,14 @@ class ConfigManager private constructor(private val context: Context) {
     var taskPromptReasoning: Boolean
         get() = sharedPrefs.getBoolean(
             KEY_TASK_PROMPT_REASONING,
-            PortalCloudClient.DEFAULT_REASONING,
+            PortalServiceClient.DEFAULT_REASONING,
         )
         set(value) {
             sharedPrefs.edit { putBoolean(KEY_TASK_PROMPT_REASONING, value) }
         }
 
     var taskPromptVision: Boolean
-        get() = sharedPrefs.getBoolean(KEY_TASK_PROMPT_VISION, PortalCloudClient.DEFAULT_VISION)
+        get() = sharedPrefs.getBoolean(KEY_TASK_PROMPT_VISION, PortalServiceClient.DEFAULT_VISION)
         set(value) {
             sharedPrefs.edit { putBoolean(KEY_TASK_PROMPT_VISION, value) }
         }
@@ -523,7 +532,7 @@ class ConfigManager private constructor(private val context: Context) {
         get() = TaskPromptSettingsConstraints.clampMaxSteps(
             sharedPrefs.getInt(
                 KEY_TASK_PROMPT_MAX_STEPS,
-                PortalCloudClient.DEFAULT_MAX_STEPS,
+                PortalServiceClient.DEFAULT_MAX_STEPS,
             ),
         )
         set(value) {
@@ -539,7 +548,7 @@ class ConfigManager private constructor(private val context: Context) {
         get() = TaskPromptSettingsConstraints.clampTemperature(
             sharedPrefs.getFloat(
                 KEY_TASK_PROMPT_TEMPERATURE,
-                PortalCloudClient.DEFAULT_TEMPERATURE.toFloat(),
+                PortalServiceClient.DEFAULT_TEMPERATURE.toFloat(),
             ),
         )
         set(value) {
@@ -555,7 +564,7 @@ class ConfigManager private constructor(private val context: Context) {
         get() = TaskPromptSettingsConstraints.clampExecutionTimeout(
             sharedPrefs.getInt(
                 KEY_TASK_PROMPT_TIMEOUT,
-                PortalCloudClient.DEFAULT_EXECUTION_TIMEOUT,
+                PortalServiceClient.DEFAULT_EXECUTION_TIMEOUT,
             ),
         )
         set(value) {
@@ -608,7 +617,7 @@ class ConfigManager private constructor(private val context: Context) {
                 startedAtMs = sharedPrefs.getLong(KEY_ACTIVE_TASK_STARTED_AT_MS, 0L),
                 executionTimeoutSec = sharedPrefs.getInt(
                     KEY_ACTIVE_TASK_EXECUTION_TIMEOUT_SEC,
-                    PortalCloudClient.DEFAULT_EXECUTION_TIMEOUT,
+                    PortalServiceClient.DEFAULT_EXECUTION_TIMEOUT,
                 ),
                 pollDeadlineMs = sharedPrefs.getLong(KEY_ACTIVE_TASK_POLL_DEADLINE_MS, 0L),
                 lastStatus = sharedPrefs.getString(
@@ -681,10 +690,38 @@ class ConfigManager private constructor(private val context: Context) {
 
         val legacyExplicitModel = sharedPrefs.getString(KEY_TASK_PROMPT_MODEL, "")?.trim().orEmpty()
         sharedPrefs.edit {
-            putString(KEY_TASK_PROMPT_DEFAULT_MODEL, PortalCloudClient.DEFAULT_MODEL_ID)
-            if (legacyExplicitModel == PortalCloudClient.DEFAULT_MODEL_ID) {
+            putString(KEY_TASK_PROMPT_DEFAULT_MODEL, PortalServiceClient.DEFAULT_MODEL_ID)
+            if (legacyExplicitModel == PortalServiceClient.DEFAULT_MODEL_ID) {
                 remove(KEY_TASK_PROMPT_MODEL)
             }
+        }
+    }
+
+    // Only for legacy config migration; safe to remove after all users have upgraded
+    private fun migrateAwayFromOfficialCloudDefaultsIfNeeded() {
+        val storedReverseUrl = sharedPrefs.getString(KEY_REVERSE_CONNECTION_URL, null)?.trim().orEmpty()
+        val usesLegacyCloudJoinPath = try {
+            val uri = URI(storedReverseUrl.replace(DEVICE_ID_PLACEHOLDER, "device"))
+            val scheme = uri.scheme?.lowercase().orEmpty()
+            val normalizedPath = uri.path?.trimEnd('/').orEmpty()
+            (scheme == "ws" || scheme == "wss") && normalizedPath == LEGACY_CLOUD_JOIN_PATH
+        } catch (_: Exception) {
+            false
+        }
+
+        if (!usesLegacyCloudJoinPath) {
+            return
+        }
+
+        sharedPrefs.edit {
+            putString(KEY_REVERSE_CONNECTION_URL, DEFAULT_REVERSE_CONNECTION_URL)
+            putBoolean(KEY_REVERSE_CONNECTION_ENABLED, false)
+            putBoolean(KEY_FORCE_LOGIN_ON_NEXT_CONNECT, false)
+            remove(KEY_BROWSER_AUTH_PENDING_UNTIL_MS)
+        }
+
+        secretsPrefs.edit {
+            remove(KEY_REVERSE_CONNECTION_TOKEN)
         }
     }
 
@@ -711,7 +748,40 @@ class ConfigManager private constructor(private val context: Context) {
 
     fun normalizeReverseConnectionUrlForStorage(input: String): String {
         if (input.isBlank()) return ""
-        return input.replace(deviceID, DEVICE_ID_PLACEHOLDER)
+
+        val trimmed = input.trim()
+        val isBareLocalHost = "://" !in trimmed && (
+            trimmed.startsWith("localhost", ignoreCase = true) ||
+                Regex("^\\d{1,3}(\\.\\d{1,3}){3}(:\\d+)?(/.*)?$").matches(trimmed) ||
+                Regex("^\\[[0-9a-fA-F:]+\\](:\\d+)?(/.*)?$").matches(trimmed) ||
+                Regex("^[^/]+:\\d+(/.*)?$").matches(trimmed)
+        )
+        val withScheme = when {
+            "://" in trimmed -> trimmed
+            isBareLocalHost -> "ws://$trimmed"
+            else -> trimmed
+        }
+
+        return try {
+            val uri = URI(withScheme)
+            val scheme = uri.scheme?.lowercase().orEmpty()
+            val normalizedPath = when {
+                scheme == "ws" && (uri.path.isNullOrBlank() || uri.path == "/") -> "/reverse"
+                else -> uri.path.orEmpty()
+            }
+
+            URI(
+                scheme,
+                uri.userInfo,
+                uri.host,
+                uri.port,
+                normalizedPath,
+                uri.query,
+                uri.fragment,
+            ).toString().replace(deviceID, DEVICE_ID_PLACEHOLDER)
+        } catch (_: Exception) {
+            withScheme.replace(deviceID, DEVICE_ID_PLACEHOLDER)
+        }
     }
 
     // Dynamic Event Toggles

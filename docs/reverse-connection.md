@@ -1,6 +1,8 @@
-# Reverse Connection (Cloud Mode)
+# Reverse Connection (Host-Only Mode)
 
-Droidrun Portal can initiate an outbound WebSocket connection to a host (used by Mobilerun Cloud). This keeps the device reachable even when it is behind NAT or on mobile networks.
+Droidrun Portal can initiate an outbound WebSocket connection to a host. This keeps the device reachable even when it is behind NAT or on mobile networks.
+
+This build is intended for local or self-hosted WebSocket hosts, including the local `droidrun` reverse driver host.
 
 ## Enable in the app
 
@@ -9,16 +11,13 @@ Droidrun Portal can initiate an outbound WebSocket connection to a host (used by
 3. Optional: enter a token (sent as a Bearer token).
 4. Toggle **Connect to Host**.
 
-## Alternative method (Simplest)
-
-Press Connect to Mobilerun button in portal main page.
----
-
-Mobilerun default host URL:
+For local `droidrun` reverse mode, use a URL like:
 
 ```
-wss://api.mobilerun.ai/v1/providers/personal/join
+ws://192.168.1.20:8765/reverse
 ```
+
+If you enter only `host:port` in the app UI, Portal normalizes it to `ws://host:port/reverse` for local hosts.
 
 The `{deviceId}` placeholder is replaced automatically if present.
 
