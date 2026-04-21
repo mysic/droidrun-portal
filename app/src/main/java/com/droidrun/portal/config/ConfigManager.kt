@@ -86,6 +86,7 @@ class ConfigManager private constructor(private val context: Context) {
         private const val KEY_AUTH_TOKEN = "auth_token"
         private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_BROWSER_AUTH_PENDING_UNTIL_MS = "browser_auth_pending_until_ms"
+        private const val KEY_FORCE_LOGIN_ON_NEXT_CONNECT = "force_login_on_next_connect"
         private const val DEVICE_ID_PLACEHOLDER = "{deviceId}"
 
         private const val DEFAULT_OFFSET = 0
