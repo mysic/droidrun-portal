@@ -43,6 +43,7 @@ class ReverseConnectionService : Service() {
         private const val NOTIFICATION_ID = 2002
         internal const val RECONNECT_DELAY_MS = 3000L
         internal const val RECONNECT_GIVE_UP_MS = 30 * 60 * 1000L // 30 minutes
+        internal const val MAX_RECONNECT_ATTEMPTS = 3
         private const val TOAST_DEBOUNCE_MS = 60_000L
         private const val CONNECTION_LOST_TIMEOUT_SEC = 30
         const val ACTION_DISCONNECT = "com.droidrun.portal.action.REVERSE_DISCONNECT"
@@ -151,6 +152,8 @@ class ReverseConnectionService : Service() {
         reverseDeviceEventRelay.stop()
         disconnect()
         ConnectionStateManager.setState(ConnectionState.DISCONNECTED)
+        reconnectAttemptCount = 0
+        reconnectStartedAtMs = 0L
         try {
             installExecutor.shutdownNow()
         } catch (_: Exception) {
@@ -257,6 +260,7 @@ class ReverseConnectionService : Service() {
                         "onOpen: Connected to Host: $hostUrl, status=${handshakedata?.httpStatus}, message=${handshakedata?.httpStatusMessage}"
                     )
                     reconnectStartedAtMs = 0L
+                    reconnectAttemptCount = 0
                     ConnectionStateManager.setState(ConnectionState.CONNECTED)
                     showReverseConnectionToastIfEnoughTimeIsPassed()
                     WebRtcManager.getExistingInstance()?.let { manager ->
@@ -278,6 +282,8 @@ class ReverseConnectionService : Service() {
                         // Cancel any reconnect scheduled by onError (which fires before onClose)
                         isReconnecting.set(false)
                         handler.removeCallbacksAndMessages(null)
+                        reconnectAttemptCount = 0
+                        reconnectStartedAtMs = 0L
                         val r = reason
                             ?: return // isTerminalClose(null) is false, so reason is non-null here
                         val state = when {
@@ -328,6 +334,9 @@ class ReverseConnectionService : Service() {
     @Volatile
     private var reconnectStartedAtMs = 0L
 
+    @Volatile
+    private var reconnectAttemptCount = 0
+
     private fun scheduleReconnect() {
         if (!isServiceRunning.get()) return
         if (isReconnecting.getAndSet(true)) return // Already scheduled
@@ -337,21 +346,36 @@ class ReverseConnectionService : Service() {
             reconnectStartedAtMs = now
         }
 
-        if (shouldGiveUpReconnecting(reconnectStartedAtMs, now)) {
-            Log.w(TAG, "Reconnect attempts exceeded ${RECONNECT_GIVE_UP_MS / 60_000}min, giving up")
+        if (reconnectAttemptCount >= MAX_RECONNECT_ATTEMPTS) {
+            Log.w(TAG, "Reconnect attempts exceeded $MAX_RECONNECT_ATTEMPTS, giving up")
             isReconnecting.set(false)
+            reconnectAttemptCount = 0
             reconnectStartedAtMs = 0L
             ConnectionStateManager.setState(ConnectionState.DISCONNECTED)
             handleWsDisconnected()
             return
         }
 
+        if (shouldGiveUpReconnecting(reconnectStartedAtMs, now)) {
+            Log.w(TAG, "Reconnect attempts exceeded ${RECONNECT_GIVE_UP_MS / 60_000}min, giving up")
+            isReconnecting.set(false)
+            reconnectAttemptCount = 0
+            reconnectStartedAtMs = 0L
+            ConnectionStateManager.setState(ConnectionState.DISCONNECTED)
+            handleWsDisconnected()
+            return
+        }
+
+        reconnectAttemptCount += 1
         ConnectionStateManager.setState(ConnectionState.RECONNECTING)
-        Log.d(TAG, "Scheduling reconnect in ${RECONNECT_DELAY_MS}ms")
+        Log.d(
+            TAG,
+            "Scheduling reconnect attempt $reconnectAttemptCount/$MAX_RECONNECT_ATTEMPTS in ${RECONNECT_DELAY_MS}ms"
+        )
         handler.postDelayed({
             if (isServiceRunning.get()) {
                 isReconnecting.set(false)
-                Log.d(TAG, "Attempting reconnect...")
+                Log.d(TAG, "Attempting reconnect ($reconnectAttemptCount/$MAX_RECONNECT_ATTEMPTS)...")
                 connectToHost()
             } else {
                 isReconnecting.set(false)
@@ -373,6 +397,7 @@ class ReverseConnectionService : Service() {
         configManager.reverseConnectionEnabled = false
         isServiceRunning.set(false)
         isReconnecting.set(false)
+        reconnectAttemptCount = 0
         reconnectStartedAtMs = 0L
         handler.removeCallbacksAndMessages(null)
         ScreenCaptureService.requestStop("user_disconnect")
