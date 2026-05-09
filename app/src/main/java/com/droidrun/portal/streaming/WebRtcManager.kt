@@ -115,7 +115,7 @@ class WebRtcManager private constructor(private val context: Context) {
         ): LastSessionCaptureAction {
             if (!captureActive) return LastSessionCaptureAction.NONE
             return when (reason) {
-                // Keep capture alive until idle timeout so a later cloud signal can reuse it.
+                // Keep capture alive until idle timeout so a later signal can reuse it.
                 "keep_alive_timeout" -> LastSessionCaptureAction.SCHEDULE_IDLE_STOP
                 else -> LastSessionCaptureAction.SCHEDULE_IDLE_STOP
             }

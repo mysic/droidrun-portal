@@ -220,25 +220,8 @@ class PortalServiceClient(
                     return null
                 }
 
-                val host = uri.host?.trim().orEmpty()
-                if (host.isBlank()) {
-                    return null
-                }
-
-                val billingHost = when {
-                    host.startsWith("api.", ignoreCase = true) -> "cloud.${host.removePrefix("api.")}"
-                    host.startsWith("cloud.", ignoreCase = true) -> host
-                    else -> return null
-                }
-
-                buildString {
-                    append("https://")
-                    append(billingHost)
-                    if (uri.port != -1) {
-                        append(":")
-                        append(uri.port)
-                    }
-                }
+                // Host-only build: billing endpoint derivation is intentionally disabled.
+                return null
             } catch (_: Exception) {
                 null
             }

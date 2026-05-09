@@ -230,7 +230,6 @@
     <string name="custom_connection_url_hint">ws://192.168.1.20:8765/reverse</string>
     <string name="custom_connection_helper">Example: ws://192.168.1.20:8765/reverse
 Use {deviceId} in the URL to auto-replace with this device ID.</string>
-    <!-- Deprecated: use connection_title_host instead -->
     <string name="connection_title_host">Connected to Host</string>
     <string name="configure_host_connection">Configure Host</string>
     <string name="edit_host_connection">Edit Host Connection</string>

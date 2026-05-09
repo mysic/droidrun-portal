@@ -92,8 +92,6 @@ class ConfigManager private constructor(private val context: Context) {
         private const val DEFAULT_OFFSET = 0
         private const val DEFAULT_SOCKET_PORT = 8080
         private const val DEFAULT_WEBSOCKET_PORT = 8081
-        // For backward compatibility with pre-2024 cloud builds only
-        private const val LEGACY_CLOUD_JOIN_PATH = "/v1/providers/personal/join"
         private const val DEFAULT_REVERSE_CONNECTION_URL = ""
 
         // TODO replace
@@ -121,8 +119,6 @@ class ConfigManager private constructor(private val context: Context) {
         if (sharedPrefs.contains(KEY_REVERSE_CONNECTION_ENABLED)) {
             sharedPrefs.edit { putBoolean(KEY_REVERSE_CONNECTION_ENABLED, false) }
         }
-        // Only needed for legacy cloud config migration
-        migrateAwayFromOfficialCloudDefaultsIfNeeded()
         migrateTaskPromptModelPrefsIfNeeded()
     }
 
@@ -311,9 +307,9 @@ class ConfigManager private constructor(private val context: Context) {
     var reverseConnectionEnabled: Boolean = false
 
     var forceLoginOnNextConnect: Boolean
-        get() = sharedPrefs.getBoolean("force_login_on_next_connect", false)
+        get() = sharedPrefs.getBoolean(KEY_FORCE_LOGIN_ON_NEXT_CONNECT, false)
         set(value) {
-            sharedPrefs.edit { putBoolean("force_login_on_next_connect", value) }
+            sharedPrefs.edit { putBoolean(KEY_FORCE_LOGIN_ON_NEXT_CONNECT, value) }
         }
 
     var screenShareAutoAcceptEnabled: Boolean
@@ -695,34 +691,6 @@ class ConfigManager private constructor(private val context: Context) {
             if (legacyExplicitModel == PortalServiceClient.DEFAULT_MODEL_ID) {
                 remove(KEY_TASK_PROMPT_MODEL)
             }
-        }
-    }
-
-    // Only for legacy config migration; safe to remove after all users have upgraded
-    private fun migrateAwayFromOfficialCloudDefaultsIfNeeded() {
-        val storedReverseUrl = sharedPrefs.getString(KEY_REVERSE_CONNECTION_URL, null)?.trim().orEmpty()
-        val usesLegacyCloudJoinPath = try {
-            val uri = URI(storedReverseUrl.replace(DEVICE_ID_PLACEHOLDER, "device"))
-            val scheme = uri.scheme?.lowercase().orEmpty()
-            val normalizedPath = uri.path?.trimEnd('/').orEmpty()
-            (scheme == "ws" || scheme == "wss") && normalizedPath == LEGACY_CLOUD_JOIN_PATH
-        } catch (_: Exception) {
-            false
-        }
-
-        if (!usesLegacyCloudJoinPath) {
-            return
-        }
-
-        sharedPrefs.edit {
-            putString(KEY_REVERSE_CONNECTION_URL, DEFAULT_REVERSE_CONNECTION_URL)
-            putBoolean(KEY_REVERSE_CONNECTION_ENABLED, false)
-            putBoolean("force_login_on_next_connect", false)
-            remove(KEY_BROWSER_AUTH_PENDING_UNTIL_MS)
-        }
-
-        secretsPrefs.edit {
-            remove(KEY_REVERSE_CONNECTION_TOKEN)
         }
     }
 

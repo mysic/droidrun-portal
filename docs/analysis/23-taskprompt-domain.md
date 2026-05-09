@@ -1,7 +1,7 @@
 # 23-taskprompt 业务域模块
 
 ## 1. PortalServiceClient
-- 作用：对接 Mobilerun/Portal 服务端任务接口，负责模型列表、余额、任务启动、任务详情、轨迹、截图、取消等 HTTP 交互。
+- 作用：对接 Portal 主机侧任务服务接口，负责模型列表、余额、任务启动、任务详情、轨迹、截图、取消等 HTTP 交互。
 - 关键类/方法：PortalServiceClient，fallbackModelOptions()，deriveRestBaseUrl()，deriveBillingBaseUrl() 以及各类 task/balance/models 请求。
 - 调用关系：被 MainActivity、SettingsActivity、TaskDetailsActivity、TaskHistoryActivity、PortalTaskLaunchCoordinator 等调用。
 - 生命周期：通常随页面控制器或业务服务创建。

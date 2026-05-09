@@ -16,7 +16,6 @@ credits 是干什么用的？
 # compile and package APK
 cd /home/mysic/workspaces/android-automatic/droidrun-portal
 
-
 # 1) compile and package debug APK (run from project root)
 chmod +x gradlew
 ./gradlew --no-daemon assembleDebug
