@@ -40,7 +40,7 @@
                     android:id="@+id/text_production_connection_title"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/connection_title_cloud"
+                    android:text="@string/connection_title_host"
                     android:textSize="24sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_white"
@@ -694,7 +694,7 @@
                                     android:id="@+id/text_connection_title"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="@string/connection_title_cloud"
+                                    android:text="@string/connection_title_host"
                                     android:textColor="@color/text_white"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />

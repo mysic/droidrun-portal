@@ -231,8 +231,6 @@
     <string name="custom_connection_helper">Example: ws://192.168.1.20:8765/reverse
 Use {deviceId} in the URL to auto-replace with this device ID.</string>
     <!-- Deprecated: use connection_title_host instead -->
-    <!-- Only one definition allowed -->
-    <string name="connection_title_cloud">Connected to Cloud</string>
     <string name="connection_title_host">Connected to Host</string>
     <string name="configure_host_connection">Configure Host</string>
     <string name="edit_host_connection">Edit Host Connection</string>

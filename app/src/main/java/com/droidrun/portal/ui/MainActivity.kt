@@ -92,6 +92,10 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
     private var taskPromptPollRunnable: Runnable? = null
     private var isTaskPromptStateReceiverRegistered = false
     private var activeTaskDetails: PortalTaskDetails? = null
+    private var customConnectionDialog: AlertDialog? = null
+    private var customConnectionRetryActive = false
+    private val customConnectionRetryHandler = Handler(Looper.getMainLooper())
+    private var customConnectionRetryRunnable: Runnable? = null
 
     private val installResultReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -121,6 +125,7 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
         private const val MAX_OFFSET = 256
         private const val SLIDER_RANGE = MAX_OFFSET - MIN_OFFSET
         private const val TASK_PROMPT_POLL_INTERVAL_MS = 2000L
+        private const val CUSTOM_CONNECTION_RETRY_INTERVAL_MS = 3000L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -201,12 +206,12 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
                 ConnectionState.BAD_REQUEST,
                 -> showCustomConnectionDialog()
 
-                else -> retryConnection()
+                else -> showCustomConnectionDialog()
             }
         }
 
         binding.btnErrorCustomConnection.setOnClickListener {
-            retryConnection()
+            showCustomConnectionDialog()
         }
 
         binding.btnDismissError.setOnClickListener {
@@ -272,6 +277,7 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
     }
 
     override fun onDestroy() {
+        stopCustomConnectionRetryLoop()
         stopTaskPromptPolling()
         unregisterTaskPromptStateReceiver()
         super.onDestroy()
@@ -1300,11 +1306,23 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
         val dialog = AlertDialog.Builder(this, R.style.Theme_DroidrunPortal_Dialog)
             .setView(dialogView)
             .create()
+        customConnectionDialog = dialog
 
         dialog.window?.setBackgroundDrawableResource(R.color.background_card)
+        dialog.setCanceledOnTouchOutside(false)
+        dialog.setOnDismissListener {
+            stopCustomConnectionRetryLoop()
+            // Requirement: no repeated reconnect attempts when dialog is not shown.
+            ConfigManager.getInstance(this).reverseConnectionEnabled = false
+            customConnectionDialog = null
+        }
 
         btnCancel.setOnClickListener {
             Log.d(TAG, "showCustomConnectionDialog: Cancel clicked")
+            if (customConnectionRetryActive) {
+                disconnectService()
+            }
+            stopCustomConnectionRetryLoop()
             dialog.dismiss()
         }
 
@@ -1345,8 +1363,11 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
             Log.d(TAG, "showCustomConnectionDialog: Restarting reverse connection service")
             restartReverseConnectionService()
             refreshCreditsBalance(force = true)
+            customConnectionRetryActive = true
+            btnConnect.isEnabled = false
+            btnConnect.text = getString(R.string.connecting_subtitle)
+            startCustomConnectionRetryLoop()
 
-            dialog.dismiss()
             Toast.makeText(this, "Connecting to custom server...", Toast.LENGTH_SHORT).show()
         }
 
@@ -1355,9 +1376,72 @@ class MainActivity : AppCompatActivity(), ConfigManager.ConfigChangeListener {
         Log.d(TAG, "showCustomConnectionDialog: Dialog shown")
     }
 
+    private fun startCustomConnectionRetryLoop() {
+        stopCustomConnectionRetryLoop()
+        customConnectionRetryRunnable = object : Runnable {
+            override fun run() {
+                val dialog = customConnectionDialog
+                if (dialog == null || !dialog.isShowing || !customConnectionRetryActive) {
+                    return
+                }
+
+                val state = ConnectionStateManager.getState()
+                if (state == ConnectionState.CONNECTED) {
+                    stopCustomConnectionRetryLoop()
+                    dialog.dismiss()
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.reverse_connection_connected),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    return
+                }
+
+                if (state == ConnectionState.UNAUTHORIZED ||
+                    state == ConnectionState.BAD_REQUEST ||
+                    state == ConnectionState.LIMIT_EXCEEDED
+                ) {
+                    // Terminal errors require user to update URL/token.
+                    stopCustomConnectionRetryLoop()
+                    return
+                }
+
+                retryConnection()
+                customConnectionRetryHandler.postDelayed(this, CUSTOM_CONNECTION_RETRY_INTERVAL_MS)
+            }
+        }
+        customConnectionRetryHandler.postDelayed(customConnectionRetryRunnable!!, CUSTOM_CONNECTION_RETRY_INTERVAL_MS)
+    }
+
+    private fun stopCustomConnectionRetryLoop() {
+        customConnectionRetryActive = false
+        ConfigManager.getInstance(this).reverseConnectionEnabled = false
+        customConnectionRetryRunnable?.let { customConnectionRetryHandler.removeCallbacks(it) }
+        customConnectionRetryRunnable = null
+    }
+
     private fun setupConnectionStateObserver() {
         ConnectionStateManager.connectionState.observe(this) { state ->
             currentConnectionState = state
+
+            customConnectionDialog?.let { dialog ->
+                if (dialog.isShowing) {
+                    val btnConnect = dialog.findViewById<com.google.android.material.button.MaterialButton>(R.id.btn_connect)
+                    if (state == ConnectionState.CONNECTING || state == ConnectionState.RECONNECTING) {
+                        btnConnect?.isEnabled = false
+                        btnConnect?.text = getString(R.string.connecting_subtitle)
+                    } else {
+                        btnConnect?.isEnabled = true
+                        btnConnect?.text = getString(R.string.connect_button)
+                    }
+
+                    if (customConnectionRetryActive && state == ConnectionState.CONNECTED) {
+                        stopCustomConnectionRetryLoop()
+                        dialog.dismiss()
+                    }
+                }
+            }
+
             binding.textConnectionTitle.text = getString(currentConnectionTitleRes())
             binding.textProductionConnectionTitle.text = getString(currentConnectionTitleRes())
             binding.layoutDisconnected.visibility = View.GONE

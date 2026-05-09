@@ -40,7 +40,9 @@ import com.droidrun.portal.keepalive.KeepAliveController
 import com.droidrun.portal.keepalive.KeepAliveRecoveryActivity
 import com.droidrun.portal.triggers.TriggerRuntime
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
 import org.json.JSONObject
+import java.security.MessageDigest
 
 @SuppressLint("AccessibilityPolicy")
 class DroidrunAccessibilityService : AccessibilityService(), ConfigManager.ConfigChangeListener {
@@ -59,6 +61,9 @@ class DroidrunAccessibilityService : AccessibilityService(), ConfigManager.Confi
         // Periodic update constants
         private const val REFRESH_INTERVAL_MS = 250L // Update every 250ms
         private const val MIN_FRAME_TIME_MS = 16L // Minimum time between frames (roughly 60 FPS)
+        private const val UI_CHANGE_DEBOUNCE_MS = 300L
+        private const val UI_CHANGE_DEDUP_WINDOW_MS = 1200L
+        private const val UI_SUMMARY_LIMIT = 6
 
         fun getInstance(): DroidrunAccessibilityService? = instance
 
@@ -165,6 +170,8 @@ class DroidrunAccessibilityService : AccessibilityService(), ConfigManager.Confi
     private var currentPackageName: String = ""
     private var currentActivityName: String = ""
     private val visibleElements = mutableListOf<ElementNode>()
+    private var lastUiChangeEmitAtMs: Long = 0L
+    private var lastUiChangeSignature: String = ""
 
     override fun onCreate() {
         super.onCreate()
@@ -327,13 +334,179 @@ class DroidrunAccessibilityService : AccessibilityService(), ConfigManager.Confi
             }
         }
 
+        when (event?.eventType) {
+            AccessibilityEvent.TYPE_VIEW_CLICKED -> emitUserActionEvent(event, "tap")
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> emitUserActionEvent(event, "swipe")
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED -> emitUserActionEvent(event, "input_text")
+        }
+
         // Trigger update on relevant events
         when (event?.eventType) {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED,
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+            AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED,
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
+                emitUiChangedEvent(event)
                 // Use a faster handling instead of clearing elements
             }
+        }
+    }
+
+    private fun emitUiChangedEvent(event: AccessibilityEvent) {
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastUiChangeEmitAtMs < UI_CHANGE_DEBOUNCE_MS) return
+
+        val payload = buildUiChangePayload(event)
+        val signature = payload.optString("ui_signature", "")
+        if (
+            signature.isNotBlank() &&
+            signature == lastUiChangeSignature &&
+            now - lastUiChangeEmitAtMs < UI_CHANGE_DEDUP_WINDOW_MS
+        ) {
+            return
+        }
+
+        lastUiChangeEmitAtMs = now
+        lastUiChangeSignature = signature
+        EventHub.emit(PortalEvent(type = EventType.UI_CHANGED, payload = payload))
+    }
+
+    private fun buildUiChangePayload(event: AccessibilityEvent): JSONObject {
+        val topTexts = mutableListOf<String>()
+        val topIds = mutableListOf<String>()
+
+        val rootNode = rootInActiveWindow
+        if (rootNode != null) {
+            try {
+                collectSummaryTokens(rootNode, topTexts, topIds)
+            } finally {
+                rootNode.recycle()
+            }
+        }
+
+        val changeKind = when (event.eventType) {
+            AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> "window_state_changed"
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED -> "window_content_changed"
+            AccessibilityEvent.TYPE_VIEW_SCROLLED -> "view_scrolled"
+            else -> "unknown"
+        }
+
+        val packageName = currentPackageName.ifBlank { event.packageName?.toString().orEmpty() }
+        val activityName = currentActivityName.ifBlank { event.className?.toString().orEmpty() }
+
+        val signatureSource = buildString {
+            append(packageName)
+            append('|')
+            append(activityName)
+            append('|')
+            append(changeKind)
+            append('|')
+            append(event.windowId)
+            append('|')
+            append(topTexts.joinToString("\u001F"))
+            append('|')
+            append(topIds.joinToString("\u001F"))
+        }
+
+        return JSONObject().apply {
+            put("package", packageName)
+            put("activity", activityName)
+            put("window_id", event.windowId)
+            put("change_kind", changeKind)
+            put("ui_signature", hashSignature(signatureSource))
+            put("top_texts", JSONArray(topTexts))
+            put("top_ids", JSONArray(topIds))
+        }
+    }
+
+    private fun emitUserActionEvent(event: AccessibilityEvent, actionType: String) {
+        val packageName = currentPackageName.ifBlank { event.packageName?.toString().orEmpty() }
+        val activityName = currentActivityName.ifBlank { event.className?.toString().orEmpty() }
+
+        val payload = JSONObject().apply {
+            put("package", packageName)
+            put("activity", activityName)
+            put("window_id", event.windowId)
+            put("action_type", actionType)
+            put("gesture_source", "accessibility")
+        }
+
+        if (actionType == "input_text") {
+            val textPreview = event.text?.joinToString(separator = "")?.trim().orEmpty()
+            if (textPreview.isNotBlank()) {
+                payload.put("text", textPreview)
+            }
+        }
+
+        val sourceNode = event.source
+        if (sourceNode != null) {
+            try {
+                val bounds = Rect()
+                sourceNode.getBoundsInScreen(bounds)
+                val boundsJson = JSONObject().apply {
+                    put("left", bounds.left)
+                    put("top", bounds.top)
+                    put("right", bounds.right)
+                    put("bottom", bounds.bottom)
+                }
+                payload.put("bounds", boundsJson)
+                payload.put("x", (bounds.left + bounds.right) / 2)
+                payload.put("y", (bounds.top + bounds.bottom) / 2)
+
+                sourceNode.text?.toString()?.trim()?.takeIf { it.isNotBlank() }?.let {
+                    payload.put("text", it)
+                }
+                sourceNode.contentDescription?.toString()?.trim()?.takeIf { it.isNotBlank() }?.let {
+                    payload.put("contentDescription", it)
+                }
+                sourceNode.viewIdResourceName?.trim()?.takeIf { it.isNotBlank() }?.let {
+                    payload.put("resourceId", it)
+                }
+            } finally {
+                sourceNode.recycle()
+            }
+        }
+
+        EventHub.emit(PortalEvent(type = EventType.UI_CHANGED, payload = payload))
+    }
+
+    private fun collectSummaryTokens(
+        node: AccessibilityNodeInfo,
+        topTexts: MutableList<String>,
+        topIds: MutableList<String>,
+    ) {
+        if (topTexts.size >= UI_SUMMARY_LIMIT && topIds.size >= UI_SUMMARY_LIMIT) return
+
+        val text = node.text?.toString()?.trim().orEmpty()
+        if (text.isNotBlank() && topTexts.size < UI_SUMMARY_LIMIT && !topTexts.contains(text)) {
+            topTexts.add(text)
+        }
+
+        val viewId = node.viewIdResourceName?.trim().orEmpty()
+        if (viewId.isNotBlank() && topIds.size < UI_SUMMARY_LIMIT && !topIds.contains(viewId)) {
+            topIds.add(viewId)
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            try {
+                collectSummaryTokens(child, topTexts, topIds)
+                if (topTexts.size >= UI_SUMMARY_LIMIT && topIds.size >= UI_SUMMARY_LIMIT) {
+                    break
+                }
+            } finally {
+                child.recycle()
+            }
+        }
+    }
+
+    private fun hashSignature(source: String): String {
+        return try {
+            val digest = MessageDigest.getInstance("SHA-256")
+            val bytes = digest.digest(source.toByteArray(Charsets.UTF_8))
+            bytes.joinToString(separator = "") { "%02x".format(it) }
+        } catch (e: Exception) {
+            source.hashCode().toString()
         }
     }
 

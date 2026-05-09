@@ -339,6 +339,14 @@ class ReverseConnectionService : Service() {
 
     private fun scheduleReconnect() {
         if (!isServiceRunning.get()) return
+        if (!configManager.reverseConnectionEnabled) {
+            Log.i(TAG, "Reconnect skipped: reverseConnectionEnabled=false")
+            isReconnecting.set(false)
+            reconnectAttemptCount = 0
+            reconnectStartedAtMs = 0L
+            ConnectionStateManager.setState(ConnectionState.DISCONNECTED)
+            return
+        }
         if (isReconnecting.getAndSet(true)) return // Already scheduled
 
         val now = SystemClock.elapsedRealtime()

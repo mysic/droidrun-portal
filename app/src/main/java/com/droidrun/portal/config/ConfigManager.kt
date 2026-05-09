@@ -717,7 +717,7 @@ class ConfigManager private constructor(private val context: Context) {
         sharedPrefs.edit {
             putString(KEY_REVERSE_CONNECTION_URL, DEFAULT_REVERSE_CONNECTION_URL)
             putBoolean(KEY_REVERSE_CONNECTION_ENABLED, false)
-            putBoolean(KEY_FORCE_LOGIN_ON_NEXT_CONNECT, false)
+            putBoolean("force_login_on_next_connect", false)
             remove(KEY_BROWSER_AUTH_PENDING_UNTIL_MS)
         }
 
